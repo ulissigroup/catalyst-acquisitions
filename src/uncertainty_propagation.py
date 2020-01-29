@@ -49,8 +49,8 @@ def get_distrib_over_min_sites(site_value_distrib_list, distrib_type='samples',
 
 
 def get_distrib_over_surface_value(min_site_distrib, optimal_min_site_value,
-                                   distrib_type='params', n_samples=1e5,
-                                   return_type='samples'):
+                                   alpha=1, beta=1, distrib_type='params',
+                                   n_samples=1e5, return_type='samples'):
     """
     Return distribution over the value of a surface. This distribution depends
     on the distribution over the minimum value of sites on a surface and on the
@@ -59,6 +59,8 @@ def get_distrib_over_surface_value(min_site_distrib, optimal_min_site_value,
     Args:
         min_site_distrib: distribution over the minimum site value on surface.
         optimal_min_site_value: optimal minimum site value on surface
+        alpha: alpha parameter
+        beta: beta parameter
         distrib_type: format of distrib for min_site_distrib, could be 'params' or
                       'samples'.
         n_samples: number of samples to generate (for 'samples' sim_type)
@@ -72,8 +74,10 @@ def get_distrib_over_surface_value(min_site_distrib, optimal_min_site_value,
     else:
         min_site_samp = min_site_distrib.reshape(-1,)
 
-    # Compute each sample: exp(|s - opt_min_site|) for s in min_site_samp
-    surface_value_samp = np.exp(np.abs(min_site_samp - optimal_min_site_value))
+    # Compute each sample:
+    #   alpha * exp(- beta |s - opt_min_site|) for s in min_site_samp
+    abs_diff_arr = np.abs(min_site_samp - optimal_min_site_value)
+    surface_value_samp = alpha * np.exp(-beta * abs_diff_arr)
 
     # Return samp array or dict of params
     if return_type == 'params':
