@@ -26,6 +26,39 @@ class AdsorptionDiscovererBase(ActiveDiscovererBase):
     assumptions:  1) we are trying to optimize the adsorption energy and 2) our
     inputs are a list of dictionaries with the 'energy' and 'std' keys.
     '''
+    def __init__(self, target_energy, training_features, training_labels,
+                 sampling_features, sampling_labels,
+                 batch_size=200, init_train=True):
+        '''
+        Perform the initial training for the active discoverer, and then
+        initialize all of the other attributes.
+
+        Args:
+            target_energy       The optimal adsorption energy of an adsorption
+                                site.
+            training_features   A sequence that contains the features that can
+                                be used to train/initialize the surrogate model
+                                of the active discoverer.
+            training_labels     A sequence that contains the labels that can
+                                be used to train/initialize the surrogate model
+                                of the active discoverer.
+            sampling_features   A sequence containing the features for the rest
+                                of the possible sampling space.
+            sampling_labels     A sequence containing the labels for the rest
+                                of the possible sampling space.
+            batch_size          An integer indicating how many elements in the
+                                sampling space you want to choose during each
+                                batch of discovery. Defaults to 200.
+            init_train          Boolean indicating whether or not you want to do
+                                your first training during this initialization.
+                                You should keep it `True` unless you're doing a
+                                warm start (manually).
+        '''
+        super().__init__(training_features, training_labels,
+                         sampling_features, sampling_labels,
+                         batch_size=batch_size, init_train=init_train)
+        self.target_energy = target_energy
+
     def _update_reward(self):
         '''
         For catalyst discovery via adsorption energy screening, we use a
@@ -87,7 +120,7 @@ class AdsorptionDiscovererBase(ActiveDiscovererBase):
         _ = ax.plot(energy_range, energy_range, '--')  # noqa: F841
         return fig
 
-    def calculate_current_bulk_values(self, n_samples=20, alpha=1, beta=1):
+    def calculate_bulk_values(self, n_samples=20, alpha=1, beta=1):
         '''
         Calculates the distributions of values of each bulk. Requires the
         `self.model` attribute to be able to accept `self.sampling_features`
@@ -95,23 +128,9 @@ class AdsorptionDiscovererBase(ActiveDiscovererBase):
         predicted labels and the second sequence should be the predicted
         standard deviations/uncertainties.
 
-        Arg:
-            n_samples       An integer indicating how many times we want to
-                            sample all the distributions of energies. We do
-                            this sampling so that we can propagate uncertainty
-                            from the site-level to the bulk-level.
-        '''
-        values_by_surface = self._calculate_surface_values(n_samples, alpha, beta)
-
-    def _calculate_surface_values(self, n_samples, alpha, beta):
-        '''
-        Calculates the "value" of each surface in the discovery base by
-        assuming an Arrhenius-like relationship between the low coverage
-        binding energy of the surface and its value.
-
-        Arg:
+        Args:
             n_samples   An integer indicating how many times we want to sample
-                        all the distributions of energies. We do this sampling
+                        all the distributions of values. We do this sampling
                         so that we can propagate uncertainty from the
                         site-level to the bulk-level.
             alpha       A float for the pre-exponential factor of the Arrhenius
@@ -119,11 +138,53 @@ class AdsorptionDiscovererBase(ActiveDiscovererBase):
             beta        A float for the exponential factor of the Arrhenius
                         relationship between energy and value; akin to the
                         activation energy.
+        Returns:
+            bulk_values A dictionary whose
         '''
-        energies_by_surface = self._calculate_binding_energies_by_surface(n_samples)
+        values_by_surface = self.calculate_surface_values(n_samples, alpha, beta)
+
+        # Concatenate all the values for each surface onto their corresponding
+        # bulks
+        surface_values_by_bulk = {}
+        for surface, values in values_by_surface.items():
+            bulk_id = surface[0]
+            surface_values = values.reshape((1, -1))
+            try:
+                surface_values_by_bulk[bulk_id] = np.concatenate((surface_values_by_bulk[bulk_id], surface_values), axis=0)
+            except KeyError:
+                surface_values_by_bulk[bulk_id] = surface_values
+
+        # The value of a bulk is the average value of all of its surfaces
+        bulk_values = {bulk_id: surface_values.mean(axis=0)
+                       for bulk_id, surface_values in surface_values_by_bulk.items()}
+        return bulk_values
+
+    def calculate_surface_values(self, n_samples=20, alpha=1, beta=1):
+        '''
+        Calculates the "value" of each surface in the discovery space by
+        assuming an Arrhenius-like relationship between the low coverage
+        binding energy of the surface and its value.
+
+        Args:
+            n_samples   An integer indicating how many times we want to sample
+                        all the distributions of values. We do this sampling
+                        so that we can propagate uncertainty from the
+                        site-level to the bulk-level.
+            alpha       A float for the pre-exponential factor of the Arrhenius
+                        relationship between energy and value
+            beta        A float for the exponential factor of the Arrhenius
+                        relationship between energy and value; akin to the
+                        activation energy.
+        Returns:
+            values_by_surface   A dictionary whose keys are a 4-tuple
+                                containing surface information (mpid, miller,
+                                shift, top) and whose values are a `np.array`
+                                of floats indicating the "value" of a surface.
+        '''
+        energies_by_surface = self.calculate_low_coverage_binding_energies_by_surface(n_samples)
 
         # Perform an Arrhenius-like transformation of the binding energies to
-        # get a rough estimate of activity.
+        # get a rough estimate of value/activity.
         values_by_surface = {}
         for surface, energies in energies_by_surface.items():
             energy_diffs = np.abs(energies - self.target_energy)
@@ -132,7 +193,7 @@ class AdsorptionDiscovererBase(ActiveDiscovererBase):
 
         return values_by_surface
 
-    def _calculate_low_coverage_binding_energies_by_surface(self, n_samples):
+    def calculate_low_coverage_binding_energies_by_surface(self, n_samples=20):
         '''
         Find/predicts the low coverage binding energies for each surface in the
         discovery space. Uses both DFT data (with zero uncertainty) and ML data
@@ -147,10 +208,10 @@ class AdsorptionDiscovererBase(ActiveDiscovererBase):
             low_cov_energies_by_surface     A dictionary whose keys are a
                                             4-tuple containing surface
                                             information (mpid, miller, shift,
-                                            top) and whose values are a list
-                                            of floats indicating the sampled
-                                            low coverage adsorption energies of
-                                            each surface.
+                                            top) and whose values are a
+                                            `np.array` of floats indicating the
+                                            sampled low coverage adsorption
+                                            energies of each surface.
         '''
         energies, stdevs, surfaces = self._concatenate_all_predictions()
 
@@ -164,7 +225,7 @@ class AdsorptionDiscovererBase(ActiveDiscovererBase):
                 energies_by_surface[surface] = samples
 
         # Grab the lowest energy from each surface for each of the samples
-        low_cov_energies_by_surface = {surface: sampled_energies.mean(axis=0)
+        low_cov_energies_by_surface = {surface: sampled_energies.min(axis=0)
                                        for surface, sampled_energies in energies_by_surface.items()}
         return low_cov_energies_by_surface
 
