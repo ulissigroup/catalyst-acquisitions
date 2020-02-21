@@ -35,45 +35,51 @@ class ActiveDiscovererBase:
     ando/or acquisition routines. It does so by "simulating" what the routine
     would have done given a particular sampling space.
     '''
-    def __init__(self, optimal_value, training_set, sampling_space,
-                 init_train=True, batch_size=200):
+    def __init__(self, training_features, training_labels,
+                 sampling_features, sampling_labels,
+                 batch_size=200, init_train=True):
         '''
         Perform the initial training for the active discoverer, and then
         initialize all of the other attributes.
 
         Args:
-            optimal_value   An object that represents the optimal value of
-                            whatever it is you're optimizing. Should be used in
-                            the `update_regret` method.
-            training_set    A sequence that can be used to train/initialize the
-                            surrogate model of the active discoverer.
-            sampling_space  A sequence containing the rest of the possible
-                            sampling space.
-            batch_size      An integer indicating how many elements in the
-                            sampling space you want to choose
-            init_train      Boolean indicating whether or not you want to do
-                            your first training during this initialization.
-                            You should keep it `True` unless you're doing a
-                            warm start (manually).
+            training_features   A sequence that contains the features that can
+                                be used to train/initialize the surrogate model
+                                of the active discoverer.
+            training_labels     A sequence that contains the labels that can
+                                be used to train/initialize the surrogate model
+                                of the active discoverer.
+            sampling_features   A sequence containing the features for the rest
+                                of the possible sampling space.
+            sampling_labels     A sequence containing the labels for the rest
+                                of the possible sampling space.
+            batch_size          An integer indicating how many elements in the
+                                sampling space you want to choose during each
+                                batch of discovery. Defaults to 200.
+            init_train          Boolean indicating whether or not you want to do
+                                your first training during this initialization.
+                                You should keep it `True` unless you're doing a
+                                warm start (manually).
         '''
         # Attributes we use to judge the discovery
-        self.regret_history = [0.]
+        self.reward_history = [0.]
         self.residuals = []
 
         # Attributes we need to hallucinate the discovery
-        self.optimal_value = optimal_value
         self.next_batch_number = 0
-        self.training_set = []
-        self.training_batch = list(deepcopy(training_set))
-        self.sampling_space = list(deepcopy(sampling_space))
+        self.training_features = []
+        self.training_features = list(deepcopy(training_features))
+        self.training_labels = list(deepcopy(training_labels))
+        self.sampling_features = list(deepcopy(sampling_features))
+        self.sampling_labels = list(deepcopy(sampling_labels))
         self.batch_size = batch_size
         if init_train:
             self._train()
 
         # Attributes used in the `__assert_correct_hallucination` method
-        self.__previous_training_set_len = len(self.training_set)
-        self.__previous_sampling_space_len = len(self.sampling_space)
-        self.__previous_regret_history_len = len(self.regret_history)
+        self.__previous_training_set_len = len(self.training_features)
+        self.__previous_sampling_space_len = len(self.sampling_features)
+        self.__previous_reward_history_len = len(self.reward_history)
         self.__previous_residuals_len = len(self.residuals)
 
     def simulate_discovery(self, starting_batch_number=0):
@@ -81,7 +87,7 @@ class ActiveDiscovererBase:
         Perform the discovery simulation until all of the sampling space has
         been consumed.
         '''
-        n_batches = math.ceil(len(self.sampling_space) / self.batch_size)
+        n_batches = math.ceil(len(self.sampling_features) / self.batch_size)
         for i in tqdm(range(0, n_batches), desc='Hallucinating discovery...'):
             self._hallucinate_next_batch()
 
@@ -93,7 +99,7 @@ class ActiveDiscovererBase:
         # Perform one iteration of active discovery
         self._choose_next_batch()
         self._train()
-        self._update_regret()
+        self._update_reward()
 
         # Make sure it was done correctly
         self.__assert_correct_hallucination()
@@ -101,10 +107,14 @@ class ActiveDiscovererBase:
     @abstractmethod
     def _choose_next_batch(self):
         '''
-        This method should choose `self.batch_size` samples from the
-        `self.sampling_space` attribute, then put them into a list and assign
-        it to the `self.training_batch` attribute. It should also remove
-        anything it selected from the `self.sampling_space` attribute.
+        This method should:
+            1. choose `self.batch_size` samples from the
+               `self.sampling_features`  and `self.sampling_labels` attributes,
+               and return them;
+            2. it should also remove anything it selected from the
+               `self.sampling_features` and `self.sampling_labels` attributes;
+               and
+            3. increment `self.next_batch_number` by 1
         '''
         pass
 
@@ -113,18 +123,18 @@ class ActiveDiscovererBase:
         '''
         This method should take the output of the `choose_next_batch` method;
         calculate the current model's residuals on that batch and extend them
-        onto the `residuals` attribute; use the training batch [re]train the
-        surrogate model; and finally extend the `self.training_set` attribute
+        onto the `residuals` attribute; use the training batch to [re]train the
+        surrogate model; and finally extend the `self.training_features` attribute
         with the batch that it is passed.
         '''
         pass
 
     @abstractmethod
-    def _update_regret(self):
+    def _update_reward(self):
         '''
         This method should take the output of the `choose_next_batch` method
-        and then use it to calculate the new cumulative regret. It should then
-        append it to the `regret_history` attribute.
+        and then use it to calculate the new current reward. It should then
+        append it to the `reward_history` attribute.
         '''
         pass
 
@@ -136,23 +146,23 @@ class ActiveDiscovererBase:
         '''
         # Make sure that the the sampling space is being reduced
         try:
-            assert len(self.sampling_space) < self.__previous_sampling_space_len
-            self.__previous_sampling_space_len = len(self.sampling_space)
+            assert len(self.sampling_features) < self.__previous_sampling_space_len
+            self.__previous_sampling_space_len = len(self.sampling_features)
         except AssertionError as error:
             message = ('\nWhen creating the `_choose_next_batch` method for '
                        'a child-class of `ActiveDiscovererBase`, you need to '
-                       'remove the chosen batch from the `sampling_space` '
+                       'remove the chosen batch from the `sampling_features` '
                        'attribute.')
             raise type(error)(str(error) + message).with_traceback(sys.exc_info()[2])
 
         # Make sure that the training set is being increased
         try:
-            assert len(self.training_set) > self.__previous_training_set_len
-            self.__previous_training_set_len = len(self.training_set)
+            assert len(self.training_features) > self.__previous_training_set_len
+            self.__previous_training_set_len = len(self.training_features)
         except AssertionError as error:
             message = ('\nWhen creating the `_train` method for a '
                        'child-class of `ActiveDiscovererBase`, you need to extend '
-                       'the `training_set` attribute with the new training '
+                       'the `training_features` attribute with the new training '
                        'batch.')
             raise type(error)(str(error) + message).with_traceback(sys.exc_info()[2])
 
@@ -167,41 +177,51 @@ class ActiveDiscovererBase:
                        'of the new batch (before retraining).')
             raise type(error)(str(error) + message).with_traceback(sys.exc_info()[2])
 
-        # Make sure we are calculating the regret at each step
+        # Make sure we are calculating the reward at each step
         try:
-            assert len(self.regret_history) > self.__previous_regret_history_len
-            self.__previous_regret_history_len = len(self.regret_history)
+            assert len(self.reward_history) > self.__previous_reward_history_len
+            self.__previous_reward_history_len = len(self.reward_history)
         except AssertionError as error:
-            message = ('\nWhen creating the `_update_regret` method for a '
+            message = ('\nWhen creating the `update_reward` method for a '
                        'child-class of `ActiveDiscovererBase`, you need to append '
-                       'the `regret_history` attribute with the cumulative '
-                       'regret given the new batch.')
+                       'the `reward_history` attribute with the current '
+                       'reward given the new batch.')
             raise type(error)(str(error) + message).with_traceback(sys.exc_info()[2])
 
     def _pop_next_batch(self):
         '''
         Optional helper function that you can use to choose the next batch from
-        `self.sampling_space`, remove it from the attribute, place the new
-        batch onto the `self.training_batch` attribute, increment the
-        `self.next_batch_number`.
+        `self.sampling_features`, remove it from the attribute, place the new
+        batch onto the `self.training_features` attribute, increment the
+        `self.next_batch_number`. Then do it all again for the
+        `self.sampling_labels` and `self.training_labels` attributes.
 
         This method will only work if you have already sorted the
-        `self.sampling_space` such that the highest priority samples are
-        earlier in the index.
+        `self.sampling_features` and `self.sampling_labels` such that the
+        highest priority samples are earlier in the index.
+
+        Returns:
+            features    A list of length `self.batch_size` that contains the
+                        next batch of features to train on.
+            labels      A list of length `self.batch_size` that contains the
+                        next batch of labels to train on.
         '''
-        samples = []
+        features = []
+        labels = []
         for _ in range(self.batch_size):
             try:
-                sample = self.sampling_space.pop(0)
-                samples.append(sample)
+                feature = self.sampling_features.pop(0)
+                label = self.sampling_labels.pop(0)
+                features.append(feature)
+                labels.append(label)
             except IndexError:
                 break
-        self.training_batch = samples
         self.next_batch_number += 1
+        return features, labels
 
     def plot_performance(self, window=20, metric='mean'):
         '''
-        Light wrapper for plotting the regret and residuals over the course of
+        Light wrapper for plotting the reward and residuals over the course of
         the discovery.
 
         Arg:
@@ -212,29 +232,29 @@ class ActiveDiscovererBase:
                     `pandas.DataFrame.rolling` class, e.g., 'mean', 'median',
                     'min', 'max', 'std', 'sum', etc.
         Returns:
-            regret_fig  The matplotlib figure object for the regret plot
+            reward_fig  The matplotlib figure object for the reward plot
             resid_fig   The matplotlib figure object for the residual plot
         '''
-        regret_fig = self.plot_regret()
+        reward_fig = self.plot_reward()
         learning_fig = self.plot_learning_curve(window)
         parity_fig = self.plot_parity()
-        return regret_fig, learning_fig, parity_fig
+        return reward_fig, learning_fig, parity_fig
 
-    def plot_regret(self):
+    def plot_reward(self):
         '''
-        Plot the regret vs. discovery batch
+        Plot the reward vs. discovery batch
 
         Returns:
-            fig     The matplotlib figure object for the regret plot
+            fig     The matplotlib figure object for the reward plot
         '''
         # Plot
         fig = plt.figure()
-        sampling_sizes = [i*self.batch_size for i, _ in enumerate(self.regret_history)]
-        ax = sns.scatterplot(sampling_sizes, self.regret_history)
+        sampling_sizes = [i*self.batch_size for i, _ in enumerate(self.reward_history)]
+        ax = sns.scatterplot(sampling_sizes, self.reward_history)
 
         # Format
         _ = ax.set_xlabel('Number of discovery queries')  # noqa: F841
-        _ = ax.set_ylabel('Cumulative regret [eV]')  # noqa: F841
+        _ = ax.set_ylabel('Reward')  # noqa: F841
         _ = fig.set_size_inches(15, 5)  # noqa: F841
         _ = ax.get_xaxis().set_major_formatter(FORMATTER)
         _ = ax.get_yaxis().set_major_formatter(FORMATTER)
