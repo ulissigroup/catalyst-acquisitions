@@ -67,7 +67,6 @@ class ActiveDiscovererBase:
 
         # Attributes we need to hallucinate the discovery
         self.next_batch_number = 0
-        self.training_features = []
         self.training_features = list(deepcopy(training_features))
         self.training_labels = list(deepcopy(training_labels))
         self.sampling_features = list(deepcopy(sampling_features))

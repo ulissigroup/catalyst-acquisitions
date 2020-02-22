@@ -26,8 +26,10 @@ class AdsorptionDiscovererBase(ActiveDiscovererBase):
     assumptions:  1) we are trying to optimize the adsorption energy and 2) our
     inputs are a list of dictionaries with the 'energy' and 'std' keys.
     '''
-    def __init__(self, target_energy, training_features, training_labels,
-                 sampling_features, sampling_labels,
+    def __init__(self, target_energy, quantile_cutoff,
+                 training_features, training_labels, training_surfaces,
+                 sampling_features, sampling_labels, sampling_surfaces,
+                 n_samples=20, alpha=1., beta=1.,
                  batch_size=200, init_train=True):
         '''
         Perform the initial training for the active discoverer, and then
@@ -36,16 +38,44 @@ class AdsorptionDiscovererBase(ActiveDiscovererBase):
         Args:
             target_energy       The optimal adsorption energy of an adsorption
                                 site.
+            quantile_cutoff     A float within (0, 1). When we search for bulk
+                                materials, we want to classify them as "good"
+                                or "not good". "Good" is defined as whether a
+                                bulk is in the top quantile of the total set of
+                                bulks we are searching over. This
+                                `quantile_cutoff` argument is the threshold at
+                                which we consider a bulk good or not. For
+                                example:  A value of 0.95 will search for the
+                                top 5% of bulks; a value of 0.80 will search
+                                for the top 20% of bulks; etc.
             training_features   A sequence that contains the features that can
                                 be used to train/initialize the surrogate model
                                 of the active discoverer.
             training_labels     A sequence that contains the labels that can
                                 be used to train/initialize the surrogate model
                                 of the active discoverer.
+            training_surfaces   A sequence that contains 4-tuples that represent
+                                the surfaces of each site in the training set.
+                                The 4-tuple should contain (mpid, miller,
+                                shift, top).
             sampling_features   A sequence containing the features for the rest
                                 of the possible sampling space.
             sampling_labels     A sequence containing the labels for the rest
                                 of the possible sampling space.
+            sampling_surfaces   A sequence that contains 4-tuples that represent
+                                the surfaces of each site in the sampling
+                                space. The 4-tuple should contain (mpid,
+                                miller, shift, top).
+            n_samples           An integer indicating how many times we want to
+                                sample all the distributions of values. We do
+                                this sampling so that we can propagate
+                                uncertainty from the site-level to the
+                                bulk-level.
+            alpha               A float for the pre-exponential factor of the
+                                Arrhenius relationship between energy and value.
+            beta                A float for the exponential factor of the
+                                Arrhenius relationship between energy and
+                                value; akin to the activation energy.
             batch_size          An integer indicating how many elements in the
                                 sampling space you want to choose during each
                                 batch of discovery. Defaults to 200.
@@ -57,7 +87,17 @@ class AdsorptionDiscovererBase(ActiveDiscovererBase):
         super().__init__(training_features, training_labels,
                          sampling_features, sampling_labels,
                          batch_size=batch_size, init_train=init_train)
+
         self.target_energy = target_energy
+        self.n_samples = n_samples
+        self.alpha = alpha
+        self.beta = beta
+
+        if not (0 < quantile_cutoff < 1):
+            raise ValueError('The quantile cutoff should be between 0 and 1, '
+                             'but is actually %.3f.' % quantile_cutoff)
+        else:
+            self.quantile_cutoff = quantile_cutoff
 
     def _update_reward(self):
         '''
@@ -80,47 +120,17 @@ class AdsorptionDiscovererBase(ActiveDiscovererBase):
 
         This method will calculate our reward so far.
         '''
-        # Find the current value
-        reward = self.reward[-1]
+        # Calculate current bulk values and final bulk values
+        if not hasattr(self, 'final_bulk_values'):
+            self.final_bulk_values = self.calculate_bulk_values(current=False)
+        current_bulk_values = self.calculate_bulk_values(current=True)
 
-        # Add the new reward
-        for features, energy in zip(self.training_features, self.training_label):
-            difference = energy - self.optimal_value
-            reward += abs(difference)
+        # Use the two different sets of bulk values to calculate the F1 scores,
+        # then set the F1 score as the reward
+        reward = None  # TODO:  placeholder
         self.reward.append(reward)
 
-    def plot_parity(self):
-        '''
-        Make the parity plot, where the residuals were the intermediate
-        residuals we got along the way.
-
-        Returns:
-            fig     The matplotlib figure object for the parity plot
-        '''
-        # Pull the data that we have residuals for
-        sampled_data = self.training_set[-len(self.residuals):]
-
-        # Get both the DFT energies and the predicted energies
-        energies_dft = np.array([doc['energy'] for doc in sampled_data])
-        energies_pred = energies_dft + np.array(self.residuals)
-
-        # Plot and format
-        fig = plt.figure()
-        energy_range = [min(energies_dft.min(), energies_pred.min()),
-                        max(energies_dft.max(), energies_pred.max())]
-        jgrid = sns.jointplot(energies_dft, energies_pred,
-                              extent=energy_range*2,
-                              kind='hex', bins='log')
-        ax = jgrid.ax_joint
-        _ = ax.set_xlabel('DFT-calculated adsorption energy [eV]')  # noqa: F841
-        _ = ax.set_ylabel('ML-predicted adsorption energy [eV]')  # noqa: F841
-        _ = fig.set_size_inches(10, 10)  # noqa: F841
-
-        # Add the parity line
-        _ = ax.plot(energy_range, energy_range, '--')  # noqa: F841
-        return fig
-
-    def calculate_bulk_values(self, n_samples=20, alpha=1, beta=1):
+    def calculate_bulk_values(self, current=True):
         '''
         Calculates the distributions of values of each bulk. Requires the
         `self.model` attribute to be able to accept `self.sampling_features`
@@ -129,19 +139,19 @@ class AdsorptionDiscovererBase(ActiveDiscovererBase):
         standard deviations/uncertainties.
 
         Args:
-            n_samples   An integer indicating how many times we want to sample
-                        all the distributions of values. We do this sampling
-                        so that we can propagate uncertainty from the
-                        site-level to the bulk-level.
-            alpha       A float for the pre-exponential factor of the Arrhenius
-                        relationship between energy and value
-            beta        A float for the exponential factor of the Arrhenius
-                        relationship between energy and value; akin to the
-                        activation energy.
+            current     A Boolean indicating whether you want the "current"
+                        results or the final ones. "Current" results come from
+                        data aggregations of already "sampled" points with zero
+                        uncertainty and "unsampled" points that whose means and
+                        uncertainties are calculated by `self.model`. So if
+                        this argument is `True`, then this will return what the
+                        hallucination should think the current state should be.
+                        If `False`, then this will return the true results as
+                        per all the real data fed into it.
         Returns:
             bulk_values A dictionary whose
         '''
-        values_by_surface = self.calculate_surface_values(n_samples, alpha, beta)
+        values_by_surface = self.calculate_surface_values(current)
 
         # Concatenate all the values for each surface onto their corresponding
         # bulks
@@ -159,51 +169,56 @@ class AdsorptionDiscovererBase(ActiveDiscovererBase):
                        for bulk_id, surface_values in surface_values_by_bulk.items()}
         return bulk_values
 
-    def calculate_surface_values(self, n_samples=20, alpha=1, beta=1):
+    def calculate_surface_values(self, current=True):
         '''
         Calculates the "value" of each surface in the discovery space by
         assuming an Arrhenius-like relationship between the low coverage
         binding energy of the surface and its value.
 
         Args:
-            n_samples   An integer indicating how many times we want to sample
-                        all the distributions of values. We do this sampling
-                        so that we can propagate uncertainty from the
-                        site-level to the bulk-level.
-            alpha       A float for the pre-exponential factor of the Arrhenius
-                        relationship between energy and value
-            beta        A float for the exponential factor of the Arrhenius
-                        relationship between energy and value; akin to the
-                        activation energy.
+            current     A Boolean indicating whether you want the "current"
+                        results or the final ones. "Current" results come from
+                        data aggregations of already "sampled" points with zero
+                        uncertainty and "unsampled" points that whose means and
+                        uncertainties are calculated by `self.model`. So if
+                        this argument is `True`, then this will return what the
+                        hallucination should think the current state should be.
+                        If `False`, then this will return the true results as
+                        per all the real data fed into it.
         Returns:
             values_by_surface   A dictionary whose keys are a 4-tuple
                                 containing surface information (mpid, miller,
                                 shift, top) and whose values are a `np.array`
                                 of floats indicating the "value" of a surface.
         '''
-        energies_by_surface = self.calculate_low_coverage_binding_energies_by_surface(n_samples)
+        energies_by_surface = self.calculate_low_coverage_binding_energies_by_surface(current)
 
         # Perform an Arrhenius-like transformation of the binding energies to
         # get a rough estimate of value/activity.
         values_by_surface = {}
         for surface, energies in energies_by_surface.items():
             energy_diffs = np.abs(energies - self.target_energy)
-            value = alpha * np.exp(-beta * energy_diffs)
+            value = self.alpha * np.exp(-self.beta * energy_diffs)
             values_by_surface[surface] = value
 
         return values_by_surface
 
-    def calculate_low_coverage_binding_energies_by_surface(self, n_samples=20):
+    def calculate_low_coverage_binding_energies_by_surface(self, current=True):
         '''
         Find/predicts the low coverage binding energies for each surface in the
         discovery space. Uses both DFT data (with zero uncertainty) and ML data
         (with predicted uncertainty).
 
         Arg:
-            n_samples   An integer indicating how many times we want to sample
-                        all the distributions of energies. We do this sampling
-                        so that we can propagate uncertainty from the
-                        site-level to the bulk-level.
+            current     A Boolean indicating whether you want the "current"
+                        results or the final ones. "Current" results come from
+                        data aggregations of already "sampled" points with zero
+                        uncertainty and "unsampled" points that whose means and
+                        uncertainties are calculated by `self.model`. So if
+                        this argument is `True`, then this will return what the
+                        hallucination should think the current state should be.
+                        If `False`, then this will return the true results as
+                        per all the real data fed into it.
         Returns:
             low_cov_energies_by_surface     A dictionary whose keys are a
                                             4-tuple containing surface
@@ -213,12 +228,20 @@ class AdsorptionDiscovererBase(ActiveDiscovererBase):
                                             sampled low coverage adsorption
                                             energies of each surface.
         '''
-        energies, stdevs, surfaces = self._concatenate_all_predictions()
+        # Grab the correct dataset
+        if current is True:
+            energies, stdevs, surfaces = self._concatenate_predicted_energies()
+        elif current is False:
+            energies, stdevs, surfaces = self._concatenate_true_energies()
+        else:
+            raise ValueError('The "current" argument should be Boolean, but is '
+                             'instead %s.' % type(current))
 
-        # "Sample" all the sites `n_samples` times
+        # "Sample" all the sites `self.n_samples` times
         energies_by_surface = {}
         for energy, stdev, surface in zip(energies, stdevs, surfaces):
-            samples = np.array(norm.rvs(loc=energy, scale=stdev, size=n_samples)).reshape((1, -1))
+            samples = norm.rvs(loc=energy, scale=stdev, size=self.n_samples)
+            samples = np.array(samples).reshape((1, -1))
             try:
                 energies_by_surface[surface] = np.concatenate((energies_by_surface[surface], samples), axis=0)
             except KeyError:
@@ -229,7 +252,7 @@ class AdsorptionDiscovererBase(ActiveDiscovererBase):
                                        for surface, sampled_energies in energies_by_surface.items()}
         return low_cov_energies_by_surface
 
-    def _concatenate_all_predictions(self):
+    def _concatenate_predicted_energies(self):
         '''
         This method will return the adsorption energies and corresponding
         uncertainty estimates on the entire discovery space. If something has
@@ -265,6 +288,70 @@ class AdsorptionDiscovererBase(ActiveDiscovererBase):
         surfaces = sampled_surfaces + unsampled_surfaces
         return energies, stdevs, surfaces
 
+    def _concatenate_true_energies(self):
+        '''
+        This method will return the adsorption energies and corresponding
+        "uncertainty estimates" on the entire discovery space. It will get data
+        only from DFT results and always return an uncertainty of 0.
+
+        Returns:
+            energies    A sequence containing all the energies of everything in
+                        the discovery space (including both sampled and
+                        unsampled sites).
+            stdevs      A sequence containing corresponding uncertainty estimates
+                        for the `energies` object. Will be set to 0 for
+                        everything.
+            surfaces    A list of 4-tuples that contain the information needed
+                        to figure out which surface this site sits on. Should
+                        contain (mpid, miller, shift, top).
+        '''
+        # Get the energies of things we've already "sampled". We also set their
+        # uncertainties to 0 because we "know" what their values are.
+        sampled_energies = deepcopy(self.training_labels)
+        sampled_stdevs = [0. for _ in sampled_energies]
+        sampled_surfaces = deepcopy(self.training_surfaces)
+
+        # Grab the results from the unsampled sites
+        unsampled_energies = deepcopy(self.sampling_labels)
+        unsampled_stdevs = [0. for _ in unsampled_energies]
+        unsampled_surfaces = deepcopy(self.sampling_surfaces)
+
+        # Put it all together
+        energies = sampled_energies + unsampled_energies
+        stdevs = sampled_stdevs + unsampled_stdevs
+        surfaces = sampled_surfaces + unsampled_surfaces
+        return energies, stdevs, surfaces
+
+    def plot_parity(self):
+        '''
+        Make the parity plot, where the residuals were the intermediate
+        residuals we got along the way.
+
+        Returns:
+            fig     The matplotlib figure object for the parity plot
+        '''
+        # Pull the data that we have residuals for
+        sampled_data = self.training_set[-len(self.residuals):]
+
+        # Get both the DFT energies and the predicted energies
+        energies_dft = np.array([doc['energy'] for doc in sampled_data])
+        energies_pred = energies_dft + np.array(self.residuals)
+
+        # Plot and format
+        fig = plt.figure()
+        energy_range = [min(energies_dft.min(), energies_pred.min()),
+                        max(energies_dft.max(), energies_pred.max())]
+        jgrid = sns.jointplot(energies_dft, energies_pred,
+                              extent=energy_range*2,
+                              kind='hex', bins='log')
+        ax = jgrid.ax_joint
+        _ = ax.set_xlabel('DFT-calculated adsorption energy [eV]')  # noqa: F841
+        _ = ax.set_ylabel('ML-predicted adsorption energy [eV]')  # noqa: F841
+        _ = fig.set_size_inches(10, 10)  # noqa: F841
+
+        # Add the parity line
+        _ = ax.plot(energy_range, energy_range, '--')  # noqa: F841
+        return fig
 
 # def benchmark_adsorption_value(discoverers):
 #     '''
