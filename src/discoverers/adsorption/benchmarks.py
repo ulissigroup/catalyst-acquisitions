@@ -119,16 +119,25 @@ class AdsorptionDiscovererBase(ActiveDiscovererBase):
         or not".
 
         This method will calculate our reward so far.
+
+        Returns:
+            f_one   We use our model's predictions of adsorption energies to
+                    calculate the values of bulks. Then we use our estimates of
+                    the bulk values to do a binary classification:  Is a bulk
+                    at the top X% of the distribution of all bulks, where X is
+                    `1 - self.quantile_cutoff`? The `f_one` float that we
+                    return is the F1 score of this binary classifier.
         '''
-        # Calculate current bulk values and final bulk values
-        if not hasattr(self, 'final_bulk_values'):
-            self.final_bulk_values = self.calculate_bulk_values(current=False)
+        # Calculate current bulk classes
         current_bulk_values = self.calculate_bulk_values(current=True)
+        current_bulk_classes = self._classify_bulks(current_bulk_values)
 
         # Use the two different sets of bulk values to calculate the F1 scores,
         # then set the F1 score as the reward
-        reward = None  # TODO:  placeholder
-        self.reward.append(reward)
+        precision = self._calculate_precision(current_bulk_classes)
+        recall = self._calculate_recall(current_bulk_classes)
+        f_one = 2 * (precision * recall) / (precision + recall)
+        return f_one
 
     def calculate_bulk_values(self, current=True):
         '''
@@ -149,7 +158,9 @@ class AdsorptionDiscovererBase(ActiveDiscovererBase):
                         If `False`, then this will return the true results as
                         per all the real data fed into it.
         Returns:
-            bulk_values A dictionary whose
+            values_by_surface   A dictionary whose keys are the bulk identifier
+                                and whose values are a `np.array` of floats
+                                indicating the "value" of each bulk.
         '''
         values_by_surface = self.calculate_surface_values(current)
 
@@ -321,6 +332,118 @@ class AdsorptionDiscovererBase(ActiveDiscovererBase):
         stdevs = sampled_stdevs + unsampled_stdevs
         surfaces = sampled_surfaces + unsampled_surfaces
         return energies, stdevs, surfaces
+
+    def _classify_bulks(self, bulk_values):
+        '''
+        Uses the true bulk values to classify each bulk as "good" or "not good"
+        according to whether or not its bulk value quantile is above or below
+        the `self.quantile_cutoff', respectively.
+
+        Arg:
+            bulk_values     A dictionary whose keys are the bulk ids and whose
+                            values are... the value of the bulk. Yeah this
+                            naming convention isn't the best. See
+                            `self.calculate_bulk_values`.
+        Returns:
+            good_bulks  A dictionary whose values are the bulk ids and whose
+                        values are Booleans. `True` means that the bulk is
+                        above the threshold, and `False` means that it is
+                        below.
+        '''
+        # Sort all the bulks by their median value. Higher valued bulks will
+        # show up first.
+        sorted_bulks = [(bulk, np.median(values))
+                        for bulk, values in bulk_values.items()]
+        sorted_bulks.sort(key=lambda tuple_: tuple_[1], reverse=True)
+
+        # Classify the bulks as good (`True`) if they are within the quantile
+        # threshold. Otherwise, consider them "bad".
+        cutoff = round((1-self.quantile_cutoff) * len(sorted_bulks))
+        good_bulks = {bulk: True if i <= cutoff else False
+                      for i, (bulk, value) in sorted_bulks}
+        return good_bulks
+
+    def _calculate_precision(self, current_bulk_classes):
+        '''
+        Calculates the precision of our binary classifier (see
+        `self._update_reward`).
+
+        Arg:
+            current_bulk_classes    The output of `self._classify_bulks` when
+                                    you give in the current bulk values
+        Returns:
+            recall  The precision of our binary classifier (see
+                    `self._update_reward`)
+        '''
+        # Initialize
+        final_bulk_classes = self._calculate_final_bulk_classes()
+        true_positives = 0
+        false_positives = 0
+
+        # Count the number of true positives and false positives
+        for bulk, final_class in final_bulk_classes.items():
+            current_class = current_bulk_classes[bulk]
+            if current_class is True:
+                if final_class is True:
+                    true_positives += 1
+                else:
+                    false_positives += 1
+
+        # Calculate precision
+        precision = true_positives / (true_positives + false_positives)
+        return precision
+
+    def _calculate_recall(self, current_bulk_classes):
+        '''
+        Calculates the recall of our binary classifier (see
+        `self._update_reward`).
+
+        Arg:
+            current_bulk_classes    The output of `self._classify_bulks` when
+                                    you give in the current bulk values
+        Returns:
+            recall  The recall of our binary classifier (see
+                    `self._update_reward`)
+        '''
+        # Initialize
+        final_bulk_classes = self._calculate_final_bulk_classes()
+        true_positives = 0
+        actual_positives = 0
+
+        # Count the number of actual positives and the number of correctly
+        # classified positives (true positives)
+        for bulk, final_class in final_bulk_classes.items():
+            current_class = current_bulk_classes[bulk]
+            if final_class is True:
+                actual_positives += 1
+                if current_class is True:
+                    true_positives += 1
+
+        # Calculate recall
+        recall = true_positives / actual_positives
+        return recall
+
+    def _calculate_final_classes(self):
+        '''
+        Uses the true bulk values to classify each bulk as "good" or "not good"
+        according to whether or not its bulk value quantile is above or below
+        the `self.quantile_cutoff', respectively.
+
+        Returns:
+            final_bulk_classes  A dictionary whose values are the bulk ids and
+                                whose values are Booleans. `True` means that
+                                the bulk is above the threshold, and `False`
+                                means that it is below.
+        '''
+        # Only need to calculate the final bulk classes once
+        if not hasattr(self, 'final_bulk_classes'):
+
+            # Only need to calculate the final bulk values once
+            if not hasattr(self, 'final_bulk_values'):
+                self.final_bulk_values = self.calculate_bulk_values(current=False)
+
+            self.final_bulk_classes = self._classify_bulks(self.final_bulk_values)
+        return self.final_bulk_classes
 
     def plot_parity(self):
         '''
