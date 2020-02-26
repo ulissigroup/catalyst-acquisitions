@@ -10,8 +10,6 @@ __email__ = 'ktran@andrew.cmu.edu'
 from copy import deepcopy
 import numpy as np
 from scipy.stats import norm
-import seaborn as sns
-import matplotlib.pyplot as plt
 from matplotlib import ticker
 from ..base import ActiveDiscovererBase
 
@@ -444,37 +442,6 @@ class AdsorptionDiscovererBase(ActiveDiscovererBase):
 
             self.final_bulk_classes = self._classify_bulks(self.final_bulk_values)
         return self.final_bulk_classes
-
-    def plot_parity(self):
-        '''
-        Make the parity plot, where the residuals were the intermediate
-        residuals we got along the way.
-
-        Returns:
-            fig     The matplotlib figure object for the parity plot
-        '''
-        # Pull the data that we have residuals for
-        sampled_data = self.training_set[-len(self.residuals):]
-
-        # Get both the DFT energies and the predicted energies
-        energies_dft = np.array([doc['energy'] for doc in sampled_data])
-        energies_pred = energies_dft + np.array(self.residuals)
-
-        # Plot and format
-        fig = plt.figure()
-        energy_range = [min(energies_dft.min(), energies_pred.min()),
-                        max(energies_dft.max(), energies_pred.max())]
-        jgrid = sns.jointplot(energies_dft, energies_pred,
-                              extent=energy_range*2,
-                              kind='hex', bins='log')
-        ax = jgrid.ax_joint
-        _ = ax.set_xlabel('DFT-calculated adsorption energy [eV]')  # noqa: F841
-        _ = ax.set_ylabel('ML-predicted adsorption energy [eV]')  # noqa: F841
-        _ = fig.set_size_inches(10, 10)  # noqa: F841
-
-        # Add the parity line
-        _ = ax.plot(energy_range, energy_range, '--')  # noqa: F841
-        return fig
 
 # def benchmark_adsorption_value(discoverers):
 #     '''
