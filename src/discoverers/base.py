@@ -451,11 +451,3 @@ class ActiveDiscovererBase:
         # Return the fraction of residuals that fall within the bounds
         cdf = num_within_quantile / len(residuals)
         return cdf
-
-    @abstractmethod
-    def plot_parity(self):
-        '''
-        This method should return an instance of a `matplotlib.pyplot.figure`
-        object with the parity plotted.
-        '''
-        pass
