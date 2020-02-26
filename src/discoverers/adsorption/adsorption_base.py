@@ -442,3 +442,34 @@ class AdsorptionDiscovererBase(ActiveDiscovererBase):
 
             self.final_bulk_classes = self._classify_bulks(self.final_bulk_values)
         return self.final_bulk_classes
+
+    def _pop_next_batch(self):
+        '''
+        Optional helper function that you can use to choose the next batch from
+        `self.sampling_features`, remove it from the attribute, place the new
+        batch onto the `self.training_features` attribute, increment the
+        `self.next_batch_number`. Then do it all again for the
+        `self.sampling_labels` and `self.training_labels` attributes.
+
+        This method will only work if you have already sorted the
+        `self.sampling_features` and `self.sampling_labels` such that the
+        highest priority samples are earlier in the index.
+
+        Returns:
+            features    A list of length `self.batch_size` that contains the
+                        next batch of features to train on.
+            labels      A list of length `self.batch_size` that contains the
+                        next batch of labels to train on.
+        '''
+        # The parent class will pop the features and labels just fine
+        features, labels = super()._pop_next_batch()
+
+        # We need to also pop the surfaces, too
+        surfaces = []
+        for _ in range(self.batch_size):
+            try:
+                surface = self.sampling_surfaces.pop(0)
+                surfaces.append(surface)
+            except IndexError:
+                break
+        return features, labels, surfaces
