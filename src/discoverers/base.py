@@ -12,6 +12,8 @@ from abc import abstractmethod
 import math
 import warnings
 from copy import deepcopy
+import numpy as np
+from scipy.stats import norm
 import pandas as pd
 import seaborn as sns
 import matplotlib.pyplot as plt
@@ -26,6 +28,7 @@ with warnings.catch_warnings():
 
 # Used to put commas into figures' axes' labels
 FORMATTER = ticker.FuncFormatter(lambda x, p: format(int(x), ','))
+FIG_SIZE = (9.5, 6.)
 
 
 class ActiveDiscovererBase:
@@ -120,11 +123,15 @@ class ActiveDiscovererBase:
     @abstractmethod
     def _train(self):
         '''
-        This method should take the output of the `choose_next_batch` method;
-        calculate the current model's residuals on that batch and extend them
-        onto the `residuals` attribute; use the training batch to [re]train the
-        surrogate model; and finally extend the `self.training_features` attribute
-        with the batch that it is passed.
+        This method should:
+            1. take the output of the `choose_next_batch` method
+            2. calculate the current model's residuals on that batch and extend
+               them onto the `residuals` attribute
+            3. calculate the current model's uncertainty estimates and extend
+               them onto the `uncertainty_estimates` attributes
+            4. use the training batch to [re]train the surrogate model
+            5. extend the `self.training_features` attribute with the batch
+               that it is passed.
         '''
         pass
 
@@ -218,79 +225,232 @@ class ActiveDiscovererBase:
         self.next_batch_number += 1
         return features, labels
 
-    def plot_performance(self, window=20, metric='mean'):
+    def plot_performance(self, window=20, smoother='mean',
+                         accuracy_units='', uncertainty_units=''):
         '''
-        Light wrapper for plotting the reward and residuals over the course of
-        the discovery.
+        Light wrapper for plotting various performance metrics over the course
+        of the discovery.
 
         Arg:
-            window  How many residuals to average at each point in the learning
-                    curve
-            metric  String indicating which metric you want to plot in the
-                    learning curve.  Corresponds exactly to the methods of the
-                    `pandas.DataFrame.rolling` class, e.g., 'mean', 'median',
-                    'min', 'max', 'std', 'sum', etc.
+            window              How many points to roll over during each
+                                iteration
+            smoother            String indicating how you want to smooth the
+                                residuals over the course of the hallucination.
+                                Corresponds exactly to the methods of the
+                                `pandas.DataFrame.rolling` class, e.g., 'mean',
+                                'median', 'min', 'max', 'std', 'sum', etc.
+            accuracy_units      A string indicating the labeling units you want to
+                                use for the accuracy figure.
+            uncertainty_units   A string indicating the labeling units you want to
+                                use for the uncertainty figure
         Returns:
             reward_fig  The matplotlib figure object for the reward plot
             resid_fig   The matplotlib figure object for the residual plot
         '''
-        reward_fig = self.plot_reward()
-        learning_fig = self.plot_learning_curve(window)
-        parity_fig = self.plot_parity()
-        return reward_fig, learning_fig, parity_fig
+        reward_fig = self.plot_reward(window=window, smoother=smoother)
+        accuracy_fig = self.plot_accuracy(window=window, smoother=smoother,
+                                          unit=accuracy_units)
+        uncertainty_fig = self.plot_uncertainty_estimates(window=window, smoother=smoother,
+                                                          unit=uncertainty_units)
+        calibration_fig = self.plot_calibration(window=window, smoother=smoother)
+        nll_fig = self.plot_nll(window=window, smoother=smoother)
+        return reward_fig, accuracy_fig, uncertainty_fig, calibration_fig, nll_fig
 
     def plot_reward(self):
         '''
-        Plot the reward vs. discovery batch
+        Plot the reward vs. discovery batch number
 
         Returns:
             fig     The matplotlib figure object for the reward plot
         '''
-        # Plot
+        # Plot. Assume that the reward only updates per batch.
         fig = plt.figure()
         sampling_sizes = [i*self.batch_size for i, _ in enumerate(self.reward_history)]
         ax = sns.scatterplot(sampling_sizes, self.reward_history)
 
         # Format
-        _ = ax.set_xlabel('Number of discovery queries')  # noqa: F841
-        _ = ax.set_ylabel('Reward')  # noqa: F841
-        _ = fig.set_size_inches(15, 5)  # noqa: F841
+        _ = ax.set_xlabel('Number of discovery queries')
+        _ = ax.set_ylabel('Reward')
+        _ = fig.set_size_inches(*FIG_SIZE)
         _ = ax.get_xaxis().set_major_formatter(FORMATTER)
-        _ = ax.get_yaxis().set_major_formatter(FORMATTER)
+        _ = ax.get_yaxis().set_major_formatter(FORMATTER)  # noqa: F841
         return fig
 
-    def plot_learning_curve(self, window=20, metric='mean'):
+    @staticmethod
+    def _plot_rolling_metric(metric_values, metric_name,
+                             window=20, smoother='mean', unit=''):
         '''
-        Plot the rolling average of the residuals over time
+        Helper function to plot model performance metrics across time in
+        hallucination.
 
         Arg:
-            window  How many residuals to average at each point
-            metric  String indicating which metric you want to plot.
-                    Corresponds exactly to the methods of the
-                    `pandas.DataFrame.rolling` class, e.g., 'mean', 'median',
-                    'min', 'max', 'std', 'sum', etc.
+            metric_values   A sequence of floats that will be plotted against
+                            batch number in the hallucination.
+            metric_name     A string indicating what you want the values to be
+                            labeled as in the plots.
+            window          How many points to roll over during each iteration
+            smoother        String indicating how you want to smooth the
+                            residuals over the course of the hallucination.
+                            Corresponds exactly to the methods of the
+                            `pandas.DataFrame.rolling` class, e.g., 'mean',
+                            'median', 'min', 'max', 'std', 'sum', etc.
+            unit            [Optional] String indicating the units you want to
+                            label the plot with
         Returns:
             fig     The matplotlib figure object for the learning curve
         '''
         # Format the data
-        df = pd.DataFrame(self.residuals, columns=['Residuals [eV]'])
-        rolling_residuals = getattr(df, 'Residuals [eV]').rolling(window=window)
-        rolled_values = getattr(rolling_residuals, metric)().values
-        query_numbers = list(range(len(rolled_values)))
+        df = pd.DataFrame(metric_values, columns=[metric_name])
+        rolling_residuals = getattr(df, metric_name).rolling(window=window)
+        rolled_values = getattr(rolling_residuals, smoother)().values
+        batch_numbers = list(range(len(rolled_values)))
 
         # Create and format the figure
         fig = plt.figure()
-        ax = sns.lineplot(query_numbers, rolled_values)
-        _ = ax.set_xlabel('Number of discovery queries')
-        _ = ax.set_ylabel('Rolling %s of residuals (window = %i) [eV]' % (metric, window))
-        _ = ax.set_xlim([query_numbers[0], query_numbers[-1]])
-        _ = fig.set_size_inches(15, 5)  # noqa: F841
-        _ = ax.get_xaxis().set_major_formatter(FORMATTER)
-
-        # Add a dashed line at zero residuals
-        plt.plot([0, query_numbers[-1]], [0, 0], '--k')
-
+        ax = sns.lineplot(batch_numbers, rolled_values)
+        _ = ax.set_xlabel('Number of discovery batches')
+        if unit:
+            unit = ' [' + unit + ']'
+        _ = ax.set_ylabel('Rolling %s of %s%s' % (smoother, metric_name, unit))
+        _ = ax.set_xlim([batch_numbers[0], batch_numbers[-1]])
+        _ = fig.set_size_inches(*FIG_SIZE)
+        _ = ax.get_xaxis().set_major_formatter(FORMATTER)  # noqa: F841
         return fig
+
+    def plot_accuracy(self, window=20, smoother='mean', unit=''):
+        '''
+        Plot the the validation residuals as the hallucination progresses
+
+        Arg:
+            window      How many points to roll over during each iteration
+            smoother    String indicating how you want to smooth the
+                        residuals over the course of the hallucination.
+                        Corresponds exactly to the methods of the
+                        `pandas.DataFrame.rolling` class, e.g., 'mean',
+                        'median', 'min', 'max', 'std', 'sum', etc.
+            unit        [Optional] String indicating the units you want to
+                        label the plot with
+        Returns:
+            fig     The matplotlib figure object for the learning curve
+        '''
+        fig = self._plot_rolling_metric(metric_values=np.abs(self.residuals),
+                                        metric_name='|residuals|',
+                                        window=window, smoother=smoother, unit=unit)
+        return fig
+
+    def plot_uncertainty_estimates(self, window=20, smoother='mean', unit=''):
+        '''
+        Plot the the validation uncertainties as the hallucination progresses
+
+        Arg:
+            window      How many points to roll over during each iteration
+            smoother    String indicating how you want to smooth the
+                        residuals over the course of the hallucination.
+                        Corresponds exactly to the methods of the
+                        `pandas.DataFrame.rolling` class, e.g., 'mean',
+                        'median', 'min', 'max', 'std', 'sum', etc.
+            unit        [Optional] String indicating the units you want to
+                        label the plot with
+        Returns:
+            fig     The matplotlib figure object for the learning curve
+        '''
+        fig = self._plot_rolling_metric(metric_values=self.uncertainties,
+                                        metric_name='predicted uncertainty (stdev)',
+                                        window=window, smoother=smoother, unit=unit)
+        return fig
+
+    def plot_calibration(self, window=20, smoother='mean'):
+        '''
+        Plot the the model calibration as the hallucination progresses
+
+        Arg:
+            window      How many points to roll over during each iteration
+            smoother    String indicating how you want to smooth the
+                        residuals over the course of the hallucination.
+                        Corresponds exactly to the methods of the
+                        `pandas.DataFrame.rolling` class, e.g., 'mean',
+                        'median', 'min', 'max', 'std', 'sum', etc.
+        Returns:
+            fig     The matplotlib figure object for the learning curve
+        '''
+        theoretical_cdfs = np.linspace(0, 1, 100)
+        experimental_cdfs = [self.calculate_experimental_cdf(self.residuals,
+                                                             self.uncertainties,
+                                                             quantile)
+                             for quantile in theoretical_cdfs]
+        expected_calibration_errors = ((experimental_cdfs - theoretical_cdfs)**2).mean()
+        fig = self._plot_rolling_metric(metric_values=expected_calibration_errors,
+                                        metric_name='expected calibration error',
+                                        window=window, smoother=smoother)
+        return fig
+
+    def plot_nll(self, window=20, smoother='mean'):
+        '''
+        Plot the the expected value of the model's negative-log-likelihood as
+        the hallucination progresses
+
+        Arg:
+            window      How many points to roll over during each iteration
+            smoother    String indicating how you want to smooth the
+                        residuals over the course of the hallucination.
+                        Corresponds exactly to the methods of the
+                        `pandas.DataFrame.rolling` class, e.g., 'mean',
+                        'median', 'min', 'max', 'std', 'sum', etc.
+            unit        [Optional] String indicating the units you want to
+                        label the plot with
+        Returns:
+            fig     The matplotlib figure object for the learning curve
+        '''
+        nlls = [-norm.logpdf(loc=resid, scale=std)
+                for resid, std in zip(self.residuals, self.uncertainties)]
+        fig = self._plot_rolling_metric(metric_values=nlls,
+                                        metric_name='negative log likelihoods',
+                                        window=window, smoother=smoother)
+        return fig
+
+    @staticmethod
+    def calculate_experimental_cdf(residuals, uncertainties, quantile):
+        '''
+        Say we have the residuals of a model and the model's corresponding
+        uncertainty estimates of each prediction (corresponding to the
+        residuals). Let us assume that the uncertainty estimates are standard
+        deviations for Gaussian-shaped distributions of residuals. We can
+        compare the theoretical value for the cumulative distribution functions
+        (CDFs) of Gaussian distributions with the experimental ones.
+
+        This method will calculate the value of the of the experimental CDFs
+        given the residuals, uncertainties, and theoretical CDF you want to
+        compare it to.
+
+        Args:
+            residuals       A sequence of floats corresponding to the model's
+                            residuals of predictions
+            uncertanties    A sequence of floats correpsonding to the model's
+                            estimate standard deviations for uncertainty. This
+                            sequence should map directly with `residuals`.
+            quantile        A float between [0, 1] that is used as the
+                            "theoretical" CDF value for which to calculate the
+                            experimental CDF.
+        Returns:
+            cdf     A float between [0, 1] indicating the experimental CDF
+                    value
+        '''
+        # Normalize the residuals so they all should fall on the normal bell curve
+        try:
+            normalized_residuals = residuals.reshape(-1) / uncertainties.reshape(-1)
+        except AttributeError:
+            normalized_residuals = np.array(residuals).reshape(-1) / np.array(uncertainties).reshape(-1)
+
+        # Count how many residuals fall inside here
+        num_within_quantile = 0
+        upper_bound = norm.ppf(quantile)
+        for resid in normalized_residuals:
+            if resid <= upper_bound:
+                num_within_quantile += 1
+
+        # Return the fraction of residuals that fall within the bounds
+        cdf = num_within_quantile / len(residuals)
+        return cdf
 
     @abstractmethod
     def plot_parity(self):
