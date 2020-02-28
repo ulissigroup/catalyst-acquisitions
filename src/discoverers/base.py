@@ -67,16 +67,20 @@ class ActiveDiscovererBase:
         # Attributes we use to judge the discovery
         self.reward_history = [0.]
         self.residuals = []
+        self.uncertainties = []
 
         # Attributes we need to hallucinate the discovery
         self.next_batch_number = 0
-        self.training_features = list(deepcopy(training_features))
-        self.training_labels = list(deepcopy(training_labels))
-        self.sampling_features = list(deepcopy(sampling_features))
-        self.sampling_labels = list(deepcopy(sampling_labels))
+        self.sampling_features = sampling_features
+        self.sampling_labels = sampling_labels
         self.batch_size = batch_size
-        if init_train:
-            self._train()
+        if init_train is True:
+            self.training_features = []
+            self.training_labels = []
+            self._train((training_features, training_labels))
+        else:
+            self.training_features = list(deepcopy(training_features))
+            self.training_labels = list(deepcopy(training_labels))
 
         # Attributes used in the `__assert_correct_hallucination` method
         self.__previous_training_set_len = len(self.training_features)
@@ -99,8 +103,8 @@ class ActiveDiscovererBase:
         attribute, and then re-train the surrogate model with the new samples.
         '''
         # Perform one iteration of active discovery
-        self._choose_next_batch()
-        self._train()
+        next_batch = self._choose_next_batch()
+        self._train(next_batch)
         self._update_reward()
 
         # Make sure it was done correctly
@@ -121,7 +125,7 @@ class ActiveDiscovererBase:
         pass
 
     @abstractmethod
-    def _train(self):
+    def _train(self, next_batch):
         '''
         This method should:
             1. take the output of the `choose_next_batch` method

@@ -14,6 +14,7 @@ __email__ = 'ktran@andrew.cmu.edu'
 import gc
 import random
 import pickle
+from pathlib import Path
 from bisect import bisect_right
 import numpy as np
 from scipy.stats import norm
@@ -21,74 +22,63 @@ from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
 from sklearn.decomposition import PCA
 from tpot import TPOTRegressor
+from gaspy.gasdb import get_surface_from_doc
 from gaspy_regress import fingerprinters
-from .benchmarks import AdsorptionDiscovererBase
+from .adsorption_base import AdsorptionDiscovererBase
 
 
-class TpotThompson(AdsorptionDiscovererBase):
+class TpotHeuristic(AdsorptionDiscovererBase):
     '''
     This discoverer uses a Gaussian selection method with a TPOT model to select
     new sampling points.
 
     ...sorry for the awful code. This is a hack-job and I know it.
     '''
-    # The width of the Gaussian selection curve
-    assumed_stdev = 0.1
+    def __init__(self, *args, **kwargs):
+        '''
+        In addition to the normal things that this class's parent classes do in
+        `__init__` this method also instantiates the `TPOTWrapper`
+        '''
+        self.assumed_stdev = 0.1
+        self.model = TPOTWrapper()
+        super().__init__(*args, **kwargs)
 
-    def _train(self):
+    def _train(self, next_batch):
         '''
         Calculate the residuals of the current training batch, then retrain on
         everything
-        '''
-        # Instantiate the preprocessor and TPOT if we haven't done so already
-        if not hasattr(self, 'preprocessor'):
-            self._train_preprocessor()
-        if not hasattr(self, 'tpot'):
-            self.tpot = TPOTRegressor(generations=2,
-                                      population_size=32,
-                                      offspring_size=32,
-                                      verbosity=2,
-                                      scoring='neg_median_absolute_error',
-                                      n_jobs=16,
-                                      warm_start=True)
-            features = self.preprocessor.transform(self.training_batch)
-            energies = [doc['energy'] for doc in self.training_batch]
-            self.tpot.fit(features, energies)
 
-        # Calculate and save the residuals of this next batch
-        features = self.preprocessor.transform(self.training_batch)
-        tpot_predictions = self.tpot.predict(features)
-        dft_energies = np.array([doc['energy'] for doc in self.training_batch])
-        residuals = tpot_predictions - dft_energies
-        self.residuals.extend(list(residuals))
+        Arg:
+            next_batch  The output of this class's `_choose_next_batch` method
+        '''
+        # Parse the incoming batch
+        try:
+            features, dft_energies, next_surfaces = next_batch
+        except ValueError:
+            features, dft_energies = next_batch
+            next_surfaces = [get_surface_from_doc(doc) for doc in features]
+
+        # Calculate and save the results of this next batch
+        try:
+            tpot_predictions, uncertainties = self.model.predict(features)
+            residuals = tpot_predictions - dft_energies
+            self.uncertainties.extend(uncertainties)
+            self.residuals.extend(residuals.tolist())
+        # If prediction doesn't work, then we probably haven't trained the
+        # first batch. And if haven't done this, then there's no need to save
+        # the residuals and uncertainty estimates.
+        except AttributeError:
+            pass
 
         # Retrain
-        self.training_set.extend(self.training_batch)
-        self.__train_tpot()
+        self.training_features.extend(features)
+        self.training_labels.extend(dft_energies)
+        self.training_surfaces.extend(next_surfaces)
+        self.model.train(self.training_features, self.training_labels)
 
-    def _train_preprocessor(self):
-        '''
-        Trains the preprocessing pipeline and assigns it to the `preprocessor`
-        attribute.
-        '''
-        inner_fingerprinter = fingerprinters.InnerShellFingerprinter()
-        outer_fingerprinter = fingerprinters.OuterShellFingerprinter()
-        fingerprinter = fingerprinters.StackedFingerprinter(inner_fingerprinter,
-                                                            outer_fingerprinter)
-        scaler = StandardScaler()
-        pca = PCA()
-        preprocessing_pipeline = Pipeline([('fingerprinter', fingerprinter),
-                                           ('scaler', scaler),
-                                           ('pca', pca)])
-        preprocessing_pipeline.fit(self.training_batch)
-        self.preprocessor = preprocessing_pipeline
-
-    def __train_tpot(self):
-        '''
-        Train TPOT using the `training_set` attached to the class
-        '''
         # Cache the current point for (manual) warm-starts, because there's a
         # solid chance that TPOT might cause a segmentation fault.
+        Path('./caches').mkdir(exist_ok=True)
         cache_name = 'caches/%.3i_discovery_cache.pkl' % self.next_batch_number
         with open(cache_name, 'wb') as file_handle:
             cache = {'training_features': self.training_features,
@@ -104,35 +94,19 @@ class TpotThompson(AdsorptionDiscovererBase):
                      'next_batch_number': self.next_batch_number}
             pickle.dump(cache, file_handle)
 
-        # Instantiate the preprocessor and TPOT if we haven't done so already
-        self._train_preprocessor()
-        if not hasattr(self, 'tpot'):
-            self.tpot = TPOTRegressor(generations=2,
-                                      population_size=32,
-                                      offspring_size=32,
-                                      verbosity=2,
-                                      scoring='neg_median_absolute_error',
-                                      n_jobs=16,
-                                      warm_start=True)
-
-        # [Re-]train
-        features = self.preprocessor.transform(self.training_features)
-        energies = [doc['energy'] for doc in self.training_labels]
-        self.tpot.fit(features, energies)
-        self.next_batch_number += 1
-
-        # Try to address some memory issues by collecting garbage
-        _ = gc.collect()  # noqa: F841
-
     def _choose_next_batch(self):
         '''
         Choose the next batch "randomly", where the probability of selecting
         sites are weighted using a combination of a Gaussian distribution and
         TPOT's prediction of their distance from the optimal energy.
+
+        Returns:
+            features    The features that this method chose to investigate next
+            labels      The labels that this method chose to investigate next
+            surfaces    The surfaces that this method chose to investigate next
         '''
         # Use the energies to calculate probabilities of selecting each site
-        features = self.preprocessor.transform(self.sampling_features)
-        energies = self.tpot.predict(features)
+        energies, _ = self.model.predict(self.sampling_features)
         gaussian_distribution = norm(loc=self.target_energy, scale=self.assumed_stdev)
         probability_densities = [gaussian_distribution.pdf(energy) for energy in energies]
 
@@ -152,6 +126,7 @@ class TpotThompson(AdsorptionDiscovererBase):
         self.training_features.extend(features)
         self.training_labels.extend(labels)
         self.training_surfaces.extend(surfaces)
+        return features, labels, surfaces
 
     @staticmethod
     def weighted_shuffle(*sequences, weights):
@@ -184,7 +159,7 @@ class TpotThompson(AdsorptionDiscovererBase):
             selected_index = bisect_right(cumulative_weights, rand)
 
             # Pop the element out so we don't re-select
-            packet = packets.pop(selected_index)
+            packet = packets.pop(selected_index-1)
 
             # Don't need to save the last item in each packet, which is the
             # weight
@@ -193,36 +168,75 @@ class TpotThompson(AdsorptionDiscovererBase):
 
         return (array.tolist() for array in shuffled_arrays)
 
-    def _pop_next_batch(self):
+
+class TPOTWrapper:
+    '''
+    This is our wrapper for fingerprinting sites and then using TPOT to predict
+    adsorption energies from those fingerprints.
+    '''
+    def __init__(self):
         '''
-        Optional helper function that you can use to choose the next batch from
-        `self.sampling_features`, remove it from the attribute, place the new
-        batch onto the `self.training_features` attribute, increment the
-        `self.next_batch_number`. Then do it all again for the
-        `self.sampling_labels` and `self.training_labels` attributes.
+        Instantiate the preprocessing pipeline and the TPOT model
+        '''
+        # Instantiate the fingerprinter
+        inner_fingerprinter = fingerprinters.InnerShellFingerprinter()
+        outer_fingerprinter = fingerprinters.OuterShellFingerprinter()
+        fingerprinter = fingerprinters.StackedFingerprinter(inner_fingerprinter,
+                                                            outer_fingerprinter)
+        scaler = StandardScaler()
+        pca = PCA()
+        preprocessing_pipeline = Pipeline([('fingerprinter', fingerprinter),
+                                           ('scaler', scaler),
+                                           ('pca', pca)])
+        self.preprocessor = preprocessing_pipeline
 
-        This method will only work if you have already sorted the
-        `self.sampling_features` and `self.sampling_labels` such that the
-        highest priority samples are earlier in the index.
+        # Instantiate TPOT
+        self.tpot = TPOTRegressor(generations=2,
+                                  population_size=32,
+                                  offspring_size=32,
+                                  verbosity=2,
+                                  scoring='neg_median_absolute_error',
+                                  n_jobs=16,
+                                  warm_start=True)
 
+    def train(self, docs, energies):
+        '''
+        Trains both the preprocessor and TPOT in series
+
+        Args:
+            docs        List of dictionaries from
+                        `gaspy.gasdb.get_adsorption_docs`
+            energies    List of floats containing the adsorption energies of
+                        `docs`
+        '''
+        features = self.preprocessor.fit_transform(docs)
+        self.tpot.fit(features, energies)
+
+        # Try to address some memory issues by collecting garbage
+        _ = gc.collect()  # noqa: F841
+
+    def predict(self, docs):
+        '''
+        Use the whole fingerprinting and TPOT pipeline to make adsorption
+        energy predictions
+
+        Args:
+            docs        List of dictionaries from
+                        `gaspy.gasdb.get_adsorption_docs`
         Returns:
-            features    A list of length `self.batch_size` that contains the
-                        next batch of features to train on.
-            labels      A list of length `self.batch_size` that contains the
-                        next batch of labels to train on.
+            predictions     `np.array` of TPOT's predictions of each doc
+            uncertainties   `np.array` that contains the "uncertainty
+                            prediction" for each site. In this case, it'll
+                            just be TPOT's RMSE
         '''
-        features = []
-        labels = []
-        surfaces = []
-        for _ in range(self.batch_size):
-            try:
-                feature = self.sampling_features.pop(0)
-                label = self.sampling_labels.pop(0)
-                surface = self.sampling_surfaces.pop(0)
-                features.append(feature)
-                labels.append(label)
-                surfaces.append(surface)
-            except IndexError:
-                break
-        self.next_batch_number += 1
-        return features, labels, surfaces
+        # Point predictions
+        features = self.preprocessor.transform(docs)
+        predictions = np.array(self.tpot.predict(features))
+
+        # "Uncertainties" will just be the RMSE
+        residuals = np.array([prediction - doc['energy']
+                              for prediction, doc in zip(predictions, docs)])
+        rmse = np.sqrt((residuals**2).mean())
+        uncertainties = np.array([rmse for _ in predictions])
+
+        return predictions, uncertainties

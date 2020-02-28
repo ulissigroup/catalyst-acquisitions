@@ -82,11 +82,9 @@ class AdsorptionDiscovererBase(ActiveDiscovererBase):
                                 You should keep it `True` unless you're doing a
                                 warm start (manually).
         '''
-        super().__init__(training_features, training_labels,
-                         sampling_features, sampling_labels,
-                         batch_size=batch_size, init_train=init_train)
-
+        # Additional attributes for adsorption energies
         self.target_energy = target_energy
+        self.sampling_surfaces = sampling_surfaces
         self.n_samples = n_samples
         self.alpha = alpha
         self.beta = beta
@@ -96,6 +94,16 @@ class AdsorptionDiscovererBase(ActiveDiscovererBase):
                              'but is actually %.3f.' % quantile_cutoff)
         else:
             self.quantile_cutoff = quantile_cutoff
+
+        if init_train is True:
+            self.training_surfaces = []
+        else:
+            self.training_surfaces = training_surfaces
+
+        # Still want to do normal initialization
+        super().__init__(training_features, training_labels,
+                         sampling_features, sampling_labels,
+                         batch_size=batch_size, init_train=init_train)
 
     def _update_reward(self):
         '''
@@ -135,7 +143,7 @@ class AdsorptionDiscovererBase(ActiveDiscovererBase):
         precision = self._calculate_precision(current_bulk_classes)
         recall = self._calculate_recall(current_bulk_classes)
         f_one = 2 * (precision * recall) / (precision + recall)
-        return f_one
+        self.reward_history.append(f_one)
 
     def calculate_bulk_values(self, current=True):
         '''
@@ -249,6 +257,7 @@ class AdsorptionDiscovererBase(ActiveDiscovererBase):
         # "Sample" all the sites `self.n_samples` times
         energies_by_surface = {}
         for energy, stdev, surface in zip(energies, stdevs, surfaces):
+            surface = tuple(surface)
             samples = norm.rvs(loc=energy, scale=stdev, size=self.n_samples)
             samples = np.array(samples).reshape((1, -1))
             try:
@@ -292,8 +301,8 @@ class AdsorptionDiscovererBase(ActiveDiscovererBase):
         unsampled_surfaces = deepcopy(self.sampling_surfaces)
 
         # Put it all together
-        energies = sampled_energies + predicted_energies
-        stdevs = sampled_stdevs + predicted_stdevs
+        energies = sampled_energies + np.array(predicted_energies).tolist()
+        stdevs = sampled_stdevs + np.array(predicted_stdevs).tolist()
         surfaces = sampled_surfaces + unsampled_surfaces
         return energies, stdevs, surfaces
 
@@ -326,8 +335,8 @@ class AdsorptionDiscovererBase(ActiveDiscovererBase):
         unsampled_surfaces = deepcopy(self.sampling_surfaces)
 
         # Put it all together
-        energies = sampled_energies + unsampled_energies
-        stdevs = sampled_stdevs + unsampled_stdevs
+        energies = np.concatenate((sampled_energies, unsampled_energies), axis=0)
+        stdevs = np.array(sampled_stdevs + unsampled_stdevs)
         surfaces = sampled_surfaces + unsampled_surfaces
         return energies, stdevs, surfaces
 
@@ -358,7 +367,7 @@ class AdsorptionDiscovererBase(ActiveDiscovererBase):
         # threshold. Otherwise, consider them "bad".
         cutoff = round((1-self.quantile_cutoff) * len(sorted_bulks))
         good_bulks = {bulk: True if i <= cutoff else False
-                      for i, (bulk, value) in sorted_bulks}
+                      for i, (bulk, value) in enumerate(sorted_bulks)}
         return good_bulks
 
     def _calculate_precision(self, current_bulk_classes):
@@ -374,7 +383,7 @@ class AdsorptionDiscovererBase(ActiveDiscovererBase):
                     `self._update_reward`)
         '''
         # Initialize
-        final_bulk_classes = self._calculate_final_bulk_classes()
+        final_bulk_classes = self._calculate_final_classes()
         true_positives = 0
         false_positives = 0
 
@@ -404,7 +413,7 @@ class AdsorptionDiscovererBase(ActiveDiscovererBase):
                     `self._update_reward`)
         '''
         # Initialize
-        final_bulk_classes = self._calculate_final_bulk_classes()
+        final_bulk_classes = self._calculate_final_classes()
         true_positives = 0
         actual_positives = 0
 
