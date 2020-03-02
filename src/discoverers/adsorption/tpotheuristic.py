@@ -185,6 +185,7 @@ class TpotHeuristic(AdsorptionDiscovererBase):
         for key, value in cache.items():
             setattr(self, key, value)
 
+
 class TPOTWrapper:
     '''
     This is our wrapper for fingerprinting sites and then using TPOT to predict
