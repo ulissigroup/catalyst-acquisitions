@@ -231,7 +231,7 @@ class ActiveDiscovererBase:
         return features, labels
 
     def plot_performance(self, window=20, smoother='mean',
-                         accuracy_units='', uncertainty_units=''):
+                         reward_name=None, accuracy_units='', uncertainty_units=''):
         '''
         Light wrapper for plotting various performance metrics over the course
         of the discovery.
@@ -256,7 +256,7 @@ class ActiveDiscovererBase:
             nll_fig         The matplotlib figure object for the negative log
                             likelihood
         '''
-        reward_fig = self.plot_reward()
+        reward_fig = self.plot_reward(reward_name)
         accuracy_fig = self.plot_accuracy(window=window, smoother=smoother,
                                           unit=accuracy_units)
         uncertainty_fig = self.plot_uncertainty_estimates(window=window, smoother=smoother,
@@ -265,7 +265,7 @@ class ActiveDiscovererBase:
         nll_fig = self.plot_nll(window=window, smoother=smoother)
         return reward_fig, accuracy_fig, uncertainty_fig, calibration_fig, nll_fig
 
-    def plot_reward(self):
+    def plot_reward(self, reward_name=None):
         '''
         Plot the reward vs. discovery batch number
 
@@ -278,8 +278,10 @@ class ActiveDiscovererBase:
         ax = sns.scatterplot(batch_numbers, self.reward_history)
 
         # Format
+        if reward_name is None:
+            reward_name = 'Reward'
         _ = ax.set_xlabel('Batch number')
-        _ = ax.set_ylabel('Reward')
+        _ = ax.set_ylabel(reward_name)
         _ = fig.set_size_inches(*FIG_SIZE)
         _ = ax.get_xaxis().set_major_formatter(FORMATTER)
         return fig

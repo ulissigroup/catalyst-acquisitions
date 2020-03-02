@@ -483,3 +483,34 @@ class AdsorptionDiscovererBase(ActiveDiscovererBase):
             except IndexError:
                 break
         return features, labels, surfaces
+
+    def plot_performance(self, window=20, smoother='mean',
+                         accuracy_units='eV', uncertainty_units='eV'):
+        '''
+        Light wrapper for plotting various performance metrics over the course
+        of the discovery.
+
+        Arg:
+            window              How many points to roll over during each
+                                iteration
+            smoother            String indicating how you want to smooth the
+                                residuals over the course of the hallucination.
+                                Corresponds exactly to the methods of the
+                                `pandas.DataFrame.rolling` class, e.g., 'mean',
+                                'median', 'min', 'max', 'std', 'sum', etc.
+            accuracy_units      A string indicating the labeling units you want to
+                                use for the accuracy figure.
+            uncertainty_units   A string indicating the labeling units you want to
+                                use for the uncertainty figure
+        Returns:
+            reward_fig      The matplotlib figure object for the reward plot
+            accuracy_fig    The matplotlib figure object for the accuracy
+            uncertainty_fig The matplotlib figure object for the uncertainty
+            calibration_fig The matplotlib figure object for the calibration
+            nll_fig         The matplotlib figure object for the negative log
+                            likelihood
+        '''
+        return super().plot_performance(window=window, smoother=smoother,
+                                        reward_name='Reward (F1 score)',
+                                        accuracy_units=accuracy_units,
+                                        uncertainty_units=uncertainty_units)
