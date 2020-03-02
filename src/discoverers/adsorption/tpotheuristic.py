@@ -11,6 +11,7 @@ __author__ = 'Kevin Tran'
 __email__ = 'ktran@andrew.cmu.edu'
 
 
+import os
 import gc
 import random
 import pickle
@@ -34,6 +35,7 @@ class TpotHeuristic(AdsorptionDiscovererBase):
 
     ...sorry for the awful code. This is a hack-job and I know it.
     '''
+
     def __init__(self, *args, **kwargs):
         '''
         In addition to the normal things that this class's parent classes do in
@@ -41,6 +43,13 @@ class TpotHeuristic(AdsorptionDiscovererBase):
         '''
         self.assumed_stdev = 0.1
         self.model = TPOTWrapper()
+        self.cache_location = './caches/'
+        Path(self.cache_location).mkdir(exist_ok=True)
+        self.cache_keys = {'training_features', 'training_labels', 'training_surfaces',
+                           'sampling_features', 'sampling_labels', 'sampling_surfaces',
+                           'residuals', 'uncertainties',
+                           'reward_history', 'batch_size', 'next_batch_number'}
+        self.cache_affix = '_discovery_cache.pkl'
         super().__init__(*args, **kwargs)
 
     def _train(self, next_batch):
@@ -75,24 +84,7 @@ class TpotHeuristic(AdsorptionDiscovererBase):
         self.training_labels.extend(dft_energies)
         self.training_surfaces.extend(next_surfaces)
         self.model.train(self.training_features, self.training_labels)
-
-        # Cache the current point for (manual) warm-starts, because there's a
-        # solid chance that TPOT might cause a segmentation fault.
-        Path('./caches').mkdir(exist_ok=True)
-        cache_name = 'caches/%.3i_discovery_cache.pkl' % self.next_batch_number
-        with open(cache_name, 'wb') as file_handle:
-            cache = {'training_features': self.training_features,
-                     'training_labels': self.training_labels,
-                     'training_surfaces': self.training_surfaces,
-                     'sampling_features': self.sampling_features,
-                     'sampling_labels': self.sampling_labels,
-                     'sampling_surfaces': self.sampling_surfaces,
-                     'batch_size': self.batch_size,
-                     'residuals': self.residuals,
-                     'uncertainties': self.uncertainties,
-                     'reward_history': self.reward_history,
-                     'next_batch_number': self.next_batch_number}
-            pickle.dump(cache, file_handle)
+        self._save_current_run()
 
     def _choose_next_batch(self):
         '''
@@ -168,6 +160,30 @@ class TpotHeuristic(AdsorptionDiscovererBase):
 
         return (array.tolist() for array in shuffled_arrays)
 
+    def _save_current_run(self):
+        '''
+        Cache the current point for (manual) warm-starts, because there's a
+        solid chance that TPOT might cause a segmentation fault.
+        '''
+        cache_name = (self.cache_location +
+                      '%.3i%s' % (self.next_batch_number, self.cache_affix))
+        cache = {key: getattr(self, key) for key in self.cache_keys}
+        with open(cache_name, 'wb') as file_handle:
+            pickle.dump(cache, file_handle)
+
+    def load_last_run(self):
+        '''
+        Updates the attributes according to the last cache
+        '''
+        cache_names = [cache_name for cache_name in os.listdir(self.cache_location)
+                       if cache_name.endswith(self.cache_affix)]
+        cache_names.sort()
+        cache_name = cache_names[-1]
+        with open(os.path.join(self.cache_location, cache_name), 'rb') as file_handle:
+            cache = pickle.load(file_handle)
+
+        for key, value in cache.items():
+            setattr(self, key, value)
 
 class TPOTWrapper:
     '''

@@ -387,7 +387,9 @@ class ActiveDiscovererBase:
         chunked_uncertainties = self.chunk_iterable(self.uncertainties, window)
 
         # Calculate ECE
-        for resids, stdevs in zip(chunked_residuals, chunked_uncertainties):
+        loop = tqdm(zip(chunked_residuals, chunked_uncertainties),
+                    desc='calibration', unit='batch', total=len(chunked_residuals))
+        for resids, stdevs in loop:
             ece = self.calculate_expected_calibration_error(resids, stdevs)
             try:
                 eces.extend([ece] * len(resids))
@@ -402,11 +404,11 @@ class ActiveDiscovererBase:
         return fig
 
     @staticmethod
-    def chunk_iterable(iterable, chunk_size, fill_value=None):
+    def chunk_iterable(iterable, chunk_size):
         '''
-        Chunks an iterable into pieces and returns each piece. Credit goes to
-        user "Craz" on StackOverflow
-        (https://stackoverflow.com/questions/434287/what-is-the-most-pythonic-way-to-iterate-over-a-list-in-chunks).
+        Chunks an iterable into pieces and returns each piece. Modified from a
+        snippet by user "Craz" on StackOverflow:
+        https://stackoverflow.com/questions/434287/what-is-the-most-pythonic-way-to-iterate-over-a-list-in-chunks)
 
         Args:
             iterable    Any iterable
@@ -418,7 +420,9 @@ class ActiveDiscovererBase:
             chunks  An iterable that yields each chunk
         '''
         args = [iter(iterable)] * chunk_size
-        return zip_longest(*args, fillvalue=fill_value)
+        chunks = [[item for item in chunk if item is not None]
+                  for chunk in zip_longest(*args)]
+        return chunks
 
     def calculate_expected_calibration_error(self, residuals, uncertainties):
         '''
