@@ -11,6 +11,7 @@ import sys
 from abc import abstractmethod
 import math
 import warnings
+from itertools import zip_longest
 from copy import deepcopy
 import numpy as np
 from scipy.stats import norm
@@ -28,7 +29,7 @@ with warnings.catch_warnings():
 
 # Used to put commas into figures' axes' labels
 FORMATTER = ticker.FuncFormatter(lambda x, p: format(int(x), ','))
-FIG_SIZE = (9.5, 6.)
+FIG_SIZE = (6.5, 2.5)
 
 
 class ActiveDiscovererBase:
@@ -248,10 +249,14 @@ class ActiveDiscovererBase:
             uncertainty_units   A string indicating the labeling units you want to
                                 use for the uncertainty figure
         Returns:
-            reward_fig  The matplotlib figure object for the reward plot
-            resid_fig   The matplotlib figure object for the residual plot
+            reward_fig      The matplotlib figure object for the reward plot
+            accuracy_fig    The matplotlib figure object for the accuracy
+            uncertainty_fig The matplotlib figure object for the uncertainty
+            calibration_fig The matplotlib figure object for the calibration
+            nll_fig         The matplotlib figure object for the negative log
+                            likelihood
         '''
-        reward_fig = self.plot_reward(window=window, smoother=smoother)
+        reward_fig = self.plot_reward()
         accuracy_fig = self.plot_accuracy(window=window, smoother=smoother,
                                           unit=accuracy_units)
         uncertainty_fig = self.plot_uncertainty_estimates(window=window, smoother=smoother,
@@ -269,15 +274,14 @@ class ActiveDiscovererBase:
         '''
         # Plot. Assume that the reward only updates per batch.
         fig = plt.figure()
-        sampling_sizes = [i*self.batch_size for i, _ in enumerate(self.reward_history)]
-        ax = sns.scatterplot(sampling_sizes, self.reward_history)
+        batch_numbers = list(range(len(self.reward_history)))
+        ax = sns.scatterplot(batch_numbers, self.reward_history)
 
         # Format
-        _ = ax.set_xlabel('Number of discovery queries')
+        _ = ax.set_xlabel('Batch number')
         _ = ax.set_ylabel('Reward')
         _ = fig.set_size_inches(*FIG_SIZE)
         _ = ax.get_xaxis().set_major_formatter(FORMATTER)
-        _ = ax.get_yaxis().set_major_formatter(FORMATTER)  # noqa: F841
         return fig
 
     @staticmethod
@@ -307,16 +311,17 @@ class ActiveDiscovererBase:
         df = pd.DataFrame(metric_values, columns=[metric_name])
         rolling_residuals = getattr(df, metric_name).rolling(window=window)
         rolled_values = getattr(rolling_residuals, smoother)().values
-        batch_numbers = list(range(len(rolled_values)))
+        query_numbers = list(range(len(rolled_values)))
 
         # Create and format the figure
         fig = plt.figure()
-        ax = sns.lineplot(batch_numbers, rolled_values)
-        _ = ax.set_xlabel('Number of discovery batches')
+        ax = sns.lineplot(query_numbers, rolled_values)
+        _ = ax.set_xlabel('Number of discovery queries')
         if unit:
             unit = ' [' + unit + ']'
-        _ = ax.set_ylabel('Rolling %s of %s%s' % (smoother, metric_name, unit))
-        _ = ax.set_xlim([batch_numbers[0], batch_numbers[-1]])
+        _ = ax.set_ylabel('Rolling %s of \n%s%s' % (smoother, metric_name, unit))
+        _ = ax.set_xlim([query_numbers[0], query_numbers[-1]])
+        _ = ax.set_ylim([0., np.nanmax(rolled_values) * 1.1])
         _ = fig.set_size_inches(*FIG_SIZE)
         _ = ax.get_xaxis().set_major_formatter(FORMATTER)  # noqa: F841
         return fig
@@ -377,40 +382,70 @@ class ActiveDiscovererBase:
         Returns:
             fig     The matplotlib figure object for the learning curve
         '''
-        theoretical_cdfs = np.linspace(0, 1, 100)
-        experimental_cdfs = [self.calculate_experimental_cdf(self.residuals,
-                                                             self.uncertainties,
-                                                             quantile)
-                             for quantile in theoretical_cdfs]
-        expected_calibration_errors = ((experimental_cdfs - theoretical_cdfs)**2).mean()
-        fig = self._plot_rolling_metric(metric_values=expected_calibration_errors,
+        # Divide the data into chunks, which we need to calculate ECE
+        chunked_residuals = self.chunk_iterable(self.residuals, window)
+        chunked_uncertainties = self.chunk_iterable(self.uncertainties, window)
+
+        # Calculate ECE
+        for resids, stdevs in zip(chunked_residuals, chunked_uncertainties):
+            ece = self.calculate_expected_calibration_error(resids, stdevs)
+            try:
+                eces.extend([ece] * len(resids))
+            # EAFP for initialization
+            except NameError:
+                eces = [ece] * len(resids)
+
+        # Plot
+        fig = self._plot_rolling_metric(metric_values=eces,
                                         metric_name='expected calibration error',
                                         window=window, smoother=smoother)
         return fig
 
-    def plot_nll(self, window=20, smoother='mean'):
+    @staticmethod
+    def chunk_iterable(iterable, chunk_size, fill_value=None):
         '''
-        Plot the the expected value of the model's negative-log-likelihood as
-        the hallucination progresses
+        Chunks an iterable into pieces and returns each piece. Credit goes to
+        user "Craz" on StackOverflow
+        (https://stackoverflow.com/questions/434287/what-is-the-most-pythonic-way-to-iterate-over-a-list-in-chunks).
 
-        Arg:
-            window      How many points to roll over during each iteration
-            smoother    String indicating how you want to smooth the
-                        residuals over the course of the hallucination.
-                        Corresponds exactly to the methods of the
-                        `pandas.DataFrame.rolling` class, e.g., 'mean',
-                        'median', 'min', 'max', 'std', 'sum', etc.
-            unit        [Optional] String indicating the units you want to
-                        label the plot with
+        Args:
+            iterable    Any iterable
+            chunk_size  How big you want each chunk to be
+            fill_value  If there aren't enough elements in the iterable to fill
+                        out the last chunk, then fill that chuck with this
+                        argument. Defaults to `None`
         Returns:
-            fig     The matplotlib figure object for the learning curve
+            chunks  An iterable that yields each chunk
         '''
-        nlls = [-norm.logpdf(loc=resid, scale=std)
-                for resid, std in zip(self.residuals, self.uncertainties)]
-        fig = self._plot_rolling_metric(metric_values=nlls,
-                                        metric_name='negative log likelihoods',
-                                        window=window, smoother=smoother)
-        return fig
+        args = [iter(iterable)] * chunk_size
+        return zip_longest(*args, fillvalue=fill_value)
+
+    def calculate_expected_calibration_error(self, residuals, uncertainties):
+        '''
+        Calculates the expected calibration error given the residuals and
+        uncertainty (stdev) predictions of a model.
+
+        Args:
+            residuals       A sequence of floats containing the residuals of a
+                            model's predictions.
+            uncertainties   A sequence of floats containing a model's predicted
+                            standard deviation in error. The order of this
+                            sequence should map directly with the ordering of
+                            the `residuals` argument.
+        Returns:
+            expected_calibration_error  The mean square difference between the
+                                        observed cumulative distribution
+                                        function (CDF) and the theoretical one;
+                                        across all quantiles from [0, 100]
+        '''
+        theoretical_cdfs = np.linspace(0, 1, 100)
+        experimental_cdfs = [self.calculate_experimental_cdf(residuals,
+                                                             uncertainties,
+                                                             quantile)
+                             for quantile in theoretical_cdfs]
+        experimental_cdfs = np.array(experimental_cdfs)
+        expected_calibration_error = ((experimental_cdfs - theoretical_cdfs)**2).mean()
+        return expected_calibration_error
 
     @staticmethod
     def calculate_experimental_cdf(residuals, uncertainties, quantile):
@@ -455,3 +490,28 @@ class ActiveDiscovererBase:
         # Return the fraction of residuals that fall within the bounds
         cdf = num_within_quantile / len(residuals)
         return cdf
+
+    def plot_nll(self, window=20, smoother='mean'):
+        '''
+        Plot the the expected value of the model's negative-log-likelihood as
+        the hallucination progresses
+
+        Arg:
+            window      How many points to roll over during each iteration
+            smoother    String indicating how you want to smooth the
+                        residuals over the course of the hallucination.
+                        Corresponds exactly to the methods of the
+                        `pandas.DataFrame.rolling` class, e.g., 'mean',
+                        'median', 'min', 'max', 'std', 'sum', etc.
+            unit        [Optional] String indicating the units you want to
+                        label the plot with
+        Returns:
+            fig     The matplotlib figure object for the learning curve
+        '''
+        nlls = [-norm.logpdf(resid, loc=0., scale=std)
+                for resid, std in zip(self.residuals, self.uncertainties)]
+
+        fig = self._plot_rolling_metric(metric_values=nlls,
+                                        metric_name='negative log likelihoods',
+                                        window=window, smoother=smoother)
+        return fig

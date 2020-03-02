@@ -10,12 +10,7 @@ __email__ = 'ktran@andrew.cmu.edu'
 from copy import deepcopy
 import numpy as np
 from scipy.stats import norm
-from matplotlib import ticker
 from ..base import ActiveDiscovererBase
-
-
-# Used to put commas into figures' axes' labels
-FORMATTER = ticker.FuncFormatter(lambda x, p: format(int(x), ','))
 
 
 class AdsorptionDiscovererBase(ActiveDiscovererBase):
@@ -297,14 +292,20 @@ class AdsorptionDiscovererBase(ActiveDiscovererBase):
 
         # Use the model to make predictions on the unsampled space
         unsampled_features = deepcopy(self.sampling_features)
-        predicted_energies, predicted_stdevs = self.model.predict(unsampled_features)
-        unsampled_surfaces = deepcopy(self.sampling_surfaces)
+        try:
+            predicted_energies, predicted_stdevs = self.model.predict(unsampled_features)
+            unsampled_surfaces = deepcopy(self.sampling_surfaces)
 
-        # Put it all together
-        energies = sampled_energies + np.array(predicted_energies).tolist()
-        stdevs = sampled_stdevs + np.array(predicted_stdevs).tolist()
-        surfaces = sampled_surfaces + unsampled_surfaces
-        return energies, stdevs, surfaces
+            # Put it all together
+            energies = sampled_energies + np.array(predicted_energies).tolist()
+            stdevs = sampled_stdevs + np.array(predicted_stdevs).tolist()
+            surfaces = sampled_surfaces + unsampled_surfaces
+            return energies, stdevs, surfaces
+
+        # If there's nothing left to concatenate, then just return the already
+        # sampled information
+        except np.core._exceptions.AxisError:
+            return sampled_energies, sampled_stdevs, sampled_surfaces
 
     def _concatenate_true_energies(self):
         '''
