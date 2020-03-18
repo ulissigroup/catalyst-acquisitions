@@ -36,7 +36,7 @@ class ActiveDiscovererBase:
     '''
     This is a parent class for simulating active discovery routines. The
     child classes are meant to be used to judge the efficacy of training
-    ando/or acquisition routines. It does so by "simulating" what the routine
+    and/or acquisition routines. It does so by "simulating" what the routine
     would have done given a particular sampling space.
     '''
     def __init__(self, training_features, training_labels,
@@ -129,7 +129,7 @@ class ActiveDiscovererBase:
     def _train(self, next_batch):
         '''
         This method should:
-            1. take the output of the `choose_next_batch` method
+            1. take the output of the `_choose_next_batch` method
             2. calculate the current model's residuals on that batch and extend
                them onto the `residuals` attribute
             3. calculate the current model's uncertainty estimates and extend
@@ -143,7 +143,7 @@ class ActiveDiscovererBase:
     @abstractmethod
     def _update_reward(self):
         '''
-        This method should take the output of the `choose_next_batch` method
+        This method should take the output of the `_choose_next_batch` method
         and then use it to calculate the new current reward. It should then
         append it to the `reward_history` attribute.
         '''
