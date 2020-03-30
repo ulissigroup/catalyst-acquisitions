@@ -45,6 +45,11 @@ class BayesianOptimizer(AdsorptionDiscovererBase):
         # Calculate and save the residuals of this next batch
         try:
             ml_energies, _ = self.__make_predictions(self.training_batch)
+
+            # TODO: extend self.uncertainties as well(?):
+            # ml_energies, uncertanties = self.__make_predictions(self.training_batch)
+            # self.uncertainties.extend(list(uncertainties))
+
             dft_energies = np.array([doc['energy'] for doc in self.training_batch])
             residuals = ml_energies - dft_energies
             self.residuals.extend(list(residuals))

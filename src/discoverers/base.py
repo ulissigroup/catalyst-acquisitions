@@ -133,7 +133,7 @@ class ActiveDiscovererBase:
             2. calculate the current model's residuals on that batch and extend
                them onto the `residuals` attribute
             3. calculate the current model's uncertainty estimates and extend
-               them onto the `uncertainty_estimates` attributes
+               them onto the `uncertainties` attributes
             4. use the training batch to [re]train the surrogate model
             5. extend the `self.training_features` attribute with the batch
                that it is passed.
