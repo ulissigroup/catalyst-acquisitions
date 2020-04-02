@@ -83,17 +83,24 @@ class AdsorptionDiscovererBase(ActiveDiscovererBase):
         self.n_samples = n_samples
         self.alpha = alpha
         self.beta = beta
+        if init_train is True:
+            self.training_surfaces = []
+        else:
+            self.training_surfaces = training_surfaces
 
+        # Error handling
         if not (0 < quantile_cutoff < 1):
             raise ValueError('The quantile cutoff should be between 0 and 1, '
                              'but is actually %.3f.' % quantile_cutoff)
         else:
             self.quantile_cutoff = quantile_cutoff
 
-        if init_train is True:
-            self.training_surfaces = []
-        else:
-            self.training_surfaces = training_surfaces
+        # Used to save intermediate results
+        self.cache_keys = {'training_features', 'training_labels', 'training_surfaces',
+                           'sampling_features', 'sampling_labels', 'sampling_surfaces',
+                           'residuals', 'uncertainties',
+                           'reward_history', 'batch_size', 'next_batch_number'}
+        self.cache_affix = '_discovery_cache.pkl'
 
         # Still want to do normal initialization
         super().__init__(training_features, training_labels,

@@ -1,5 +1,5 @@
 '''
-This submodule houses the `TpotThompson` child class of
+This submodule houses the `TpotHeuristic` child class of
 `AdsorptionDiscovererBase` that hallucinates the performance of an incumbent
 method that uses a TPOT-defined model to perform a sort of Thompson sampling in
 the context of discovering catalysts by screening their adsorption energies.
@@ -43,13 +43,8 @@ class TpotHeuristic(AdsorptionDiscovererBase):
         '''
         self.assumed_stdev = 0.1
         self.model = TPOTWrapper()
-        self.cache_location = './caches/'
+        self.cache_location = './tpot_caches/'
         Path(self.cache_location).mkdir(exist_ok=True)
-        self.cache_keys = {'training_features', 'training_labels', 'training_surfaces',
-                           'sampling_features', 'sampling_labels', 'sampling_surfaces',
-                           'residuals', 'uncertainties',
-                           'reward_history', 'batch_size', 'next_batch_number'}
-        self.cache_affix = '_discovery_cache.pkl'
         super().__init__(*args, **kwargs)
 
     def _train(self, next_batch):
