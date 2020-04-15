@@ -10,7 +10,8 @@ __email__ = 'willie@cs.cmu.edu'
 
 import warnings
 import random
-from .benchmarks import AdsorptionDiscovererBase
+import numpy as np
+from .adsorption_base import AdsorptionDiscovererBase
 
 # The tqdm autonotebook is still experimental, and it warns us. We don't care,
 # and would rather not hear about the warning everytime.
@@ -25,30 +26,44 @@ class RandomSearcher(AdsorptionDiscovererBase):
     energies.
     '''
 
-    def _train(self):
+    def __init__(self, *args, **kwargs):
+        '''
+        Instantiate `NullModel`.
+        '''
+        self.model = NullModel()
+        super().__init__(*args, **kwargs)
+
+    def _train(self, next_batch):
         '''
         While random search does not technically use a model, we must still
         implement this method.
         '''
 
+        features, dft_energies, next_surfaces = next_batch
+
         # NOTE: We could do something like compute random predictions (or
         # shuffle predictions in the training set) in order to get some sort of
         # proxy set of residuals. This is a bit difficult to do correctly,
-        # especially if the self.training_batch is small.
+        # especially if the self.training_batch is small. For now I explicitly
+        # set residuals as random quantities.
 
-        # Mandatory extension of the training set to include this next batch
-        self.training_set.extend(self.training_batch)
+        # Compute and store random residuals and uncertainties
+        random_residuals = list(np.random.random(len(dft_energies)))
+        random_uncertainties = list(np.random.random(len(dft_energies)))
+        self.uncertainties.extend(random_uncertainties)
+        self.residuals.extend(random_residuals)
+
+        # Extend training set attributes to include this next batch
+        self.training_features.extend(features)
+        self.training_labels.extend(dft_energies)
+        self.training_surfaces.extend(next_surfaces)
 
     def _choose_next_batch(self):
         '''
         Choose the next batch uniformly at random.
         '''
         self.__shuffle_sampling_space()
-
         features, labels, surfaces = self._pop_next_batch()
-        self.training_features.extend(features)
-        self.training_labels.extend(labels)
-        self.training_surfaces.extend(surfaces)
         return features, labels, surfaces
 
     def __shuffle_sampling_space(self):
@@ -60,3 +75,20 @@ class RandomSearcher(AdsorptionDiscovererBase):
         self.sampling_features, self.sampling_labels = zip(*sampling_all)
 
         ### TODO: shuffle surfaces too?
+
+
+class NullModel:
+    '''
+    This is a null model, which does nothing during training, and always
+    predicts 0 for mean and 1 for uncertainty.
+    '''
+
+    def train(self, docs, energies):
+        '''Do nothing.'''
+        pass
+
+    def predict(self, docs):
+        '''For each doc, predict 0 for mean and 1 for uncertainty.'''
+        predictions = np.zeros(len(docs))
+        uncertainties = np.ones(len(docs))
+        return predictions, uncertainties
