@@ -123,7 +123,7 @@ class ActiveDiscovererBase:
                and
             3. increment `self.next_batch_number` by 1
         '''
-        pass
+        raise NotImplementedError
 
     @abstractmethod
     def _train(self, next_batch):
@@ -138,7 +138,7 @@ class ActiveDiscovererBase:
             5. extend the `self.training_features` attribute with the batch
                that it is passed.
         '''
-        pass
+        raise NotImplementedError
 
     @abstractmethod
     def _update_reward(self):
@@ -147,7 +147,7 @@ class ActiveDiscovererBase:
         and then use it to calculate the new current reward. It should then
         append it to the `reward_history` attribute.
         '''
-        pass
+        raise NotImplementedError
 
     def __assert_correct_hallucination(self):
         '''
