@@ -221,8 +221,16 @@ class ActiveDiscovererBase:
         labels = []
         for _ in range(self.batch_size):
             try:
+
+                # TODO: self.sampling_features and self.sample_labels become
+                #       tuples at some point, so I cast them to lists here.
+                #       This should be fixed.
+                self.sampling_features = list(self.sampling_features)
+                self.sampling_labels = list(self.sampling_labels)
+
                 feature = self.sampling_features.pop(0)
                 label = self.sampling_labels.pop(0)
+
                 features.append(feature)
                 labels.append(label)
             except IndexError:
@@ -230,13 +238,13 @@ class ActiveDiscovererBase:
         self.next_batch_number += 1
         return features, labels
 
-    def plot_performance(self, window=20, smoother='mean',
-                         reward_name=None, accuracy_units='', uncertainty_units=''):
+    def plot_performance(self, window=20, smoother='mean', reward_name=None,
+                         accuracy_units='', uncertainty_units=''):
         '''
         Light wrapper for plotting various performance metrics over the course
         of the discovery.
 
-        Arg:
+        Args:
             window              How many points to roll over during each
                                 iteration
             smoother            String indicating how you want to smooth the
@@ -282,6 +290,7 @@ class ActiveDiscovererBase:
             reward_name = 'Reward'
         _ = ax.set_xlabel('Batch number')
         _ = ax.set_ylabel(reward_name)
+        _ = ax.set_ylim(0., 1.)
         _ = fig.set_size_inches(*FIG_SIZE)
         _ = ax.get_xaxis().set_major_formatter(FORMATTER)
         return fig
@@ -293,7 +302,7 @@ class ActiveDiscovererBase:
         Helper function to plot model performance metrics across time in
         hallucination.
 
-        Arg:
+        Args:
             metric_values   A sequence of floats that will be plotted against
                             batch number in the hallucination.
             metric_name     A string indicating what you want the values to be
@@ -332,7 +341,7 @@ class ActiveDiscovererBase:
         '''
         Plot the the validation residuals as the hallucination progresses
 
-        Arg:
+        Args:
             window      How many points to roll over during each iteration
             smoother    String indicating how you want to smooth the
                         residuals over the course of the hallucination.
@@ -353,7 +362,7 @@ class ActiveDiscovererBase:
         '''
         Plot the the validation uncertainties as the hallucination progresses
 
-        Arg:
+        Args:
             window      How many points to roll over during each iteration
             smoother    String indicating how you want to smooth the
                         residuals over the course of the hallucination.
@@ -374,7 +383,7 @@ class ActiveDiscovererBase:
         '''
         Plot the the model calibration as the hallucination progresses
 
-        Arg:
+        Args:
             window      How many points to roll over during each iteration
             smoother    String indicating how you want to smooth the
                         residuals over the course of the hallucination.
@@ -502,7 +511,7 @@ class ActiveDiscovererBase:
         Plot the the expected value of the model's negative-log-likelihood as
         the hallucination progresses
 
-        Arg:
+        Args:
             window      How many points to roll over during each iteration
             smoother    String indicating how you want to smooth the
                         residuals over the course of the hallucination.
