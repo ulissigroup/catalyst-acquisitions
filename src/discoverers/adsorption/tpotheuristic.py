@@ -52,7 +52,7 @@ class TpotHeuristic(AdsorptionDiscovererBase):
         Calculate the residuals of the current training batch, then retrain on
         everything
 
-        Arg:
+        Args:
             next_batch  The output of this class's `_choose_next_batch` method
         '''
         # Parse the incoming batch
