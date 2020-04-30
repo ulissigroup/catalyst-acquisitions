@@ -13,7 +13,7 @@ import random
 import numpy as np
 from .adsorption_base import AdsorptionDiscovererBase
 
-# The tqdm autonotebook is still experimental, and it warns us. We don't care,
+# The tqdm autonotebook is still experimental, and it warns us. We don't mind,
 # and would rather not hear about the warning everytime.
 with warnings.catch_warnings():
     warnings.simplefilter('ignore')
@@ -41,17 +41,11 @@ class RandomSearcher(AdsorptionDiscovererBase):
 
         features, dft_energies, next_surfaces = next_batch
 
-        # NOTE: We could do something like compute random predictions (or
-        # shuffle predictions in the training set) in order to get some sort of
-        # proxy set of residuals. This is a bit difficult to do correctly,
-        # especially if the self.training_batch is small. For now I explicitly
-        # set residuals as random quantities.
-
-        # Compute and store random residuals and uncertainties
-        random_residuals = list(np.random.random(len(dft_energies)))
-        random_uncertainties = list(np.random.random(len(dft_energies)))
-        self.uncertainties.extend(random_uncertainties)
-        self.residuals.extend(random_residuals)
+        # Get predictions and uncertainties from NullModel
+        predictions, uncertainties = self.model.predict(features)
+        residuals = predictions - dft_energies
+        self.uncertainties.extend(uncertainties)
+        self.residuals.extend(residuals.tolist())
 
         # Extend training set attributes to include this next batch
         self.training_features.extend(features)
