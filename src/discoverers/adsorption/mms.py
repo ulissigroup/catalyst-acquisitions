@@ -64,11 +64,12 @@ class MultiscaleDiscoverer(AdsorptionDiscovererBase):
         Arg:
             next_batch  The output of this class's `_choose_next_batch` method
         '''
-        features, dft_energies = next_batch
+        indices, dft_energies = next_batch
+        next_surfaces = self.get_surfaces_from_indices(indices)
 
         # Calculate and save the results of this next batch
         try:
-            predictions, uncertainties = self.model.predict(features)
+            predictions, uncertainties = self.model.predict(indices)
             residuals = predictions - dft_energies
             self.uncertainties.extend(uncertainties)
             self.residuals.extend(residuals.tolist())
@@ -79,10 +80,10 @@ class MultiscaleDiscoverer(AdsorptionDiscovererBase):
             pass
 
         # Retrain
-        self.training_features.extend(features)
+        self.training_features.extend(indices)
         self.training_labels.extend(dft_energies)
         self.training_surfaces.extend(next_surfaces)
-        self.model.train(self.training_features, self.training_labels)
+        self.model.train(self.training_features)
         self._save_current_run()
 
     def _choose_next_batch(self):
@@ -94,7 +95,6 @@ class MultiscaleDiscoverer(AdsorptionDiscovererBase):
             features    The indices of the database rows that this method chose
                         to investigate next
             labels      The labels that this method chose to investigate next
-            surfaces    The surfaces that this method chose to investigate next
         '''
         # Use the energies to calculate probabilities of selecting each site
         energies, _ = self.model.predict(self.sampling_features)
@@ -117,7 +117,21 @@ class MultiscaleDiscoverer(AdsorptionDiscovererBase):
         self.training_features.extend(features)
         self.training_labels.extend(labels)
         self.training_surfaces.extend(surfaces)
-        return features, labels, surfaces
+        return features, labels
+
+    def get_surfaces_from_indices(self, indices):
+        surfaces = []
+
+        for row in self.trainer.conv_trainer.dataset.ase_db.select(indices):
+            data = row.data
+            mpid = data['mpid']
+            miller = data['miller']
+            shift = data['shift']
+            top = data['top']
+            surface = (mpid, miller, shift, top)
+            surfaces.append(surface)
+
+        return surfaces
 
 
 class CFGPWrapper:
@@ -182,18 +196,13 @@ class CFGPWrapper:
 
         self.gp_trainer = GPyTorchTrainer(**self.gp_args)
 
-    def train(self, indices, energies):
+    def train(self, indices):
         '''
         Trains both the network and GP in series
 
         Args:
             indices     A sequences of integers that map to the row numbers
                         within the database that you want to train on
-            energies    List of floats containing the adsorption energies. Not
-                        actually needed since the information is implied
-                        through the `indices` argument, but stil here to make
-                        it consistent with sister classes that need to accept
-                        this argument.
         '''
         dataset = Gasdb(**self.cnn_args['dataset'])
 
