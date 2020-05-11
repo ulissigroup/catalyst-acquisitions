@@ -215,7 +215,11 @@ class CFGPWrapper:
         Args:
             indices     A sequences of integers that map to the row numbers
                         within the database that you want to train on
-            energies    List of floats containing the adsorption energies
+            energies    List of floats containing the adsorption energies. Not
+                        actually needed since the information is implied
+                        through the `indices` argument, but stil here to make
+                        it consistent with sister classes that need to accept
+                        this argument.
         '''
         dataset = Gasdb(**self.cnn_args['dataset'])
 
@@ -253,13 +257,24 @@ class CFGPWrapper:
         '''
         Use the whole pipeline to make adsorption energy predictions
 
+        Arg:
+            indices     A sequences of integers that map to the row numbers
+                        within the database that you want to train on
         Returns:
             predictions     `np.array` of predictions for each site
             uncertainties   `np.array` that contains the 'uncertainty
                             prediction' for each site. In this case, it'll
                             be the GP's predicted standard deviation.
         '''
-        predictions, uncertainties = self.trainer.predict(self.cnn_args['dataset']['src'])
+        data_loader = DataLoader(
+            self.conv_trainer.dataset[indices],
+            batch_size=self.cnn_args['optimizer']['batch_size']
+        )
+
+        convs, _ = self.trainer._get_convolutions(data_loader)
+        normed_convs = self.trainer.conv_normalizer.norm(convs)
+        predictions, uncertainties = self.trainer.gpytorch_trainer.predict(normed_convs)
+
         predictions = predictions.detach().cpu().numpy()
         uncertainties = uncertainties.detach().cpu().numpy()
         return predictions, uncertainties
