@@ -9,9 +9,6 @@ __author__ = 'Kevin Tran'
 __email__ = 'ktran@andrew.cmu.edu'
 
 
-import os
-import pickle
-from pathlib import Path
 from scipy.stats import norm
 import gpytorch
 from torch_geometric.data import DataLoader
@@ -53,8 +50,6 @@ class MultiscaleDiscoverer(AdsorptionDiscovererBase):
             kwargs  See documentation for parent class `AdsorptionDiscovererBase`
         '''
         self.model = CFGPWrapper(db_dir)
-        self.cache_location = './multiscale_caches/'
-        Path(self.cache_location).mkdir(exist_ok=True)
         super().__init__(*args, **kwargs)
 
     @property

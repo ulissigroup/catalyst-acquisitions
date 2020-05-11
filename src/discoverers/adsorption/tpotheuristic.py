@@ -11,11 +11,8 @@ __author__ = 'Kevin Tran'
 __email__ = 'ktran@andrew.cmu.edu'
 
 
-import os
 import gc
 import random
-import pickle
-from pathlib import Path
 from bisect import bisect_right
 import numpy as np
 from scipy.stats import norm
@@ -43,7 +40,6 @@ class TpotHeuristic(AdsorptionDiscovererBase):
         '''
         self.assumed_stdev = 0.1
         self.model = TPOTWrapper()
-        Path(self.cache_location).mkdir(exist_ok=True)
         super().__init__(*args, **kwargs)
 
     @property

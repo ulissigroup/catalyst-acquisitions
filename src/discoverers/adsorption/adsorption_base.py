@@ -7,7 +7,10 @@ __author__ = 'Kevin Tran'
 __email__ = 'ktran@andrew.cmu.edu'
 
 
+import os
 from copy import deepcopy
+import pickle
+from pathlib import Path
 import numpy as np
 from scipy.stats import norm
 from ..base import ActiveDiscovererBase
@@ -101,6 +104,7 @@ class AdsorptionDiscovererBase(ActiveDiscovererBase):
                            'residuals', 'uncertainties',
                            'reward_history', 'batch_size', 'next_batch_number'}
         self.cache_affix = '_discovery_cache.pkl'
+        Path(self.cache_location).mkdir(exist_ok=True)
 
         # Still want to do normal initialization
         super().__init__(training_features, training_labels,
