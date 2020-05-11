@@ -43,9 +43,12 @@ class TpotHeuristic(AdsorptionDiscovererBase):
         '''
         self.assumed_stdev = 0.1
         self.model = TPOTWrapper()
-        self.cache_location = './tpot_caches/'
         Path(self.cache_location).mkdir(exist_ok=True)
         super().__init__(*args, **kwargs)
+
+    @property
+    def cache_location(self):
+        return './tpot_caches/'
 
     def _train(self, next_batch):
         '''
@@ -154,31 +157,6 @@ class TpotHeuristic(AdsorptionDiscovererBase):
                 shuffled_arrays[j][i] = value
 
         return (array.tolist() for array in shuffled_arrays)
-
-    def _save_current_run(self):
-        '''
-        Cache the current point for (manual) warm-starts, because there's a
-        solid chance that TPOT might cause a segmentation fault.
-        '''
-        cache_name = (self.cache_location +
-                      '%.3i%s' % (self.next_batch_number, self.cache_affix))
-        cache = {key: getattr(self, key) for key in self.cache_keys}
-        with open(cache_name, 'wb') as file_handle:
-            pickle.dump(cache, file_handle)
-
-    def load_last_run(self):
-        '''
-        Updates the attributes according to the last cache
-        '''
-        cache_names = [cache_name for cache_name in os.listdir(self.cache_location)
-                       if cache_name.endswith(self.cache_affix)]
-        cache_names.sort()
-        cache_name = cache_names[-1]
-        with open(os.path.join(self.cache_location, cache_name), 'rb') as file_handle:
-            cache = pickle.load(file_handle)
-
-        for key, value in cache.items():
-            setattr(self, key, value)
 
 
 class TPOTWrapper:

@@ -521,3 +521,37 @@ class AdsorptionDiscovererBase(ActiveDiscovererBase):
                                         reward_name='Reward (F1 score)',
                                         accuracy_units=accuracy_units,
                                         uncertainty_units=uncertainty_units)
+
+    def _save_current_run(self):
+        '''
+        Cache the current point for (manual) warm-starts in case the last
+        hallucination never finished. Should be called at the end of the
+        `self._train` method.
+        '''
+        cache_name = (self.cache_location +
+                      '%.3i%s' % (self.next_batch_number, self.cache_affix))
+        cache = {key: getattr(self, key) for key in self.cache_keys}
+        with open(cache_name, 'wb') as file_handle:
+            pickle.dump(cache, file_handle)
+
+    def load_last_run(self):
+        '''
+        Updates the attributes according to the last cache
+        '''
+        cache_names = [cache_name for cache_name in os.listdir(self.cache_location)
+                       if cache_name.endswith(self.cache_affix)]
+        cache_names.sort()
+        cache_name = cache_names[-1]
+        with open(os.path.join(self.cache_location, cache_name), 'rb') as file_handle:
+            cache = pickle.load(file_handle)
+
+        for key, value in cache.items():
+            setattr(self, key, value)
+
+    @property
+    def cache_location(self):
+        '''
+        Child classes should set this property to a string indicating the
+        folder to store the cache in
+        '''
+        raise NotImplementedError
