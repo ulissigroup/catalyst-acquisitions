@@ -1,9 +1,8 @@
 '''
-This submodule houses the `MultiscaleDiscoverer` child class of
-`AdsorptionDiscovererBase` that hallucinates the performance of a new method
-that uses a Convolutional-Fed Gaussian Process to perform a sort of multiscale,
-hierarchical active discovery method to screen catalysts by screening their
-adsorption energies.
+This submodule houses the `MyopicMultiscaleSelection` child class of
+`AdsorptionDiscovererBase` that hallucinates the performance of a method that
+uses a Convolution-Fed Gaussian Process (CFGP) model to feed predictions into a
+myopic, multiscale acquisition function
 '''
 
 __author__ = 'Kevin Tran'
@@ -14,14 +13,24 @@ import os
 import pickle
 from pathlib import Path
 from scipy.stats import norm
-from gaspy.gasdb import get_surface_from_doc
+import gpytorch
+from torch_geometric.data import DataLoader
+
+# from gaspy.gasdb import get_surface_from_doc
+from ocpmodels.trainers.simple_trainer import SimpleTrainer
+from ocpmodels.models.gps import ExactGP
+from ocpmodels.commow.lbfgs import FullBatchLBFGS
+from ocpmodels.trainers.gpytorch_trainer import GPyTorchTrainer
+from ocpmodels.trainers.cfgp_trainer import CfgpTrainer
+from ocpmodels.datasets.gasdb import Gasdb
+
 from .adsorption_base import AdsorptionDiscovererBase
 
 
 class MultiscaleDiscoverer(AdsorptionDiscovererBase):
     '''
     This discoverer uses a multi-scale method for selecting new sites with the
-    goal of partitioning the search space of bulks into "good" and "not good".
+    goal of partitioning the search space of bulks into 'good' and 'not good'.
 
     It does this by performing level set estimation (LSE) for the values of a
     bulk to choose which bulk to study next; then for that bulk it uses active
@@ -32,13 +41,18 @@ class MultiscaleDiscoverer(AdsorptionDiscovererBase):
     All surrogate model predictions and corresponding uncertainty estimates
     come from a convolution-fed Gaussian process (CFGP).
     '''
-
-    def __init__(self, *args, **kwargs):
+    def __init__(self, db_dir, *args, **kwargs):
         '''
         In addition to the normal things that this class's parent classes do in
         `__init__` this method also instantiates the `CFGPWrapper`
+
+        Args:
+            db_dir  String indicating the directory of the `ase.db` dataset we
+                    want to search through
+            args    See documentation for parent class `AdsorptionDiscovererBase`
+            kwargs  See documentation for parent class `AdsorptionDiscovererBase`
         '''
-        self.model = CFGPWrapper()
+        self.model = CFGPWrapper(db_dir)
         self.cache_location = './multiscale_caches/'
         Path(self.cache_location).mkdir(exist_ok=True)
         super().__init__(*args, **kwargs)
@@ -51,17 +65,12 @@ class MultiscaleDiscoverer(AdsorptionDiscovererBase):
         Arg:
             next_batch  The output of this class's `_choose_next_batch` method
         '''
-        # Parse the incoming batch
-        try:
-            features, dft_energies, next_surfaces = next_batch
-        except ValueError:
-            features, dft_energies = next_batch
-            next_surfaces = [get_surface_from_doc(doc) for doc in features]
+        features, dft_energies = next_batch
 
         # Calculate and save the results of this next batch
         try:
-            tpot_predictions, uncertainties = self.model.predict(features)
-            residuals = tpot_predictions - dft_energies
+            predictions, uncertainties = self.model.predict(features)
+            residuals = predictions - dft_energies
             self.uncertainties.extend(uncertainties)
             self.residuals.extend(residuals.tolist())
         # If prediction doesn't work, then we probably haven't trained the
@@ -79,10 +88,12 @@ class MultiscaleDiscoverer(AdsorptionDiscovererBase):
 
     def _choose_next_batch(self):
         '''
-        Choose the next batch...?
+        Choose the next batch using our Myopic Multiscale Sampling (MMS)
+        method.
 
         Returns:
-            features    The features that this method chose to investigate next
+            features    The indices of the database rows that this method chose
+                        to investigate next
             labels      The labels that this method chose to investigate next
             surfaces    The surfaces that this method chose to investigate next
         '''
@@ -140,32 +151,115 @@ class CFGPWrapper:
     This is our wrapper for using a convolution-fed Gaussian process to predict
     adsorption energies.
     '''
-    def __init__(self):
+    def __init__(self, db_dir):
         '''
-        Instantiate the convolutional network and the GP
+        Instantiate the settings for our CFGP
         '''
-        raise NotImplementedError
+        self.__init_conv_trainer(db_dir)
+        self.__init_gp_trainer()
+        self.trainer = CfgpTrainer(self.cnn_trainer, self.gp_trainer)
 
-    def train(self, docs, energies):
+    def __init_conv_trainer(self, db_dir):
+        task = {'dataset': 'gasdb',
+                'description': ('Binding energy regression on a dataset of DFT '
+                                'results for CO, H, N, O, and OH adsorption on '
+                                'various slabs.'),
+                'labels': ['binding energy'],
+                'metric': 'mae',
+                'type': 'regression'}
+        model = {'name': 'cgcnn',
+                 'atom_embedding_size': 64,
+                 'fc_feat_size': 128,
+                 'num_fc_layers': 4,
+                 'num_graph_conv_layers': 6}
+        dataset = {'src': db_dir},
+        optimizer = {'batch_size': 64,
+                     'lr_gamma': 0.1,
+                     'lr_initial': 0.001,
+                     'lr_milestones': [100, 150],
+                     'max_epochs': 5,  # per hallucination batch
+                     'warmup_epochs': 10,
+                     'warmup_factor': 0.2}
+        self.cnn_args = {'task': task,
+                         'model': model,
+                         'dataset': dataset,
+                         'optimizer': optimizer,
+                         'identifier': 'cnn'}
+        self.__set_initial_split(dataset)
+
+        self.cnn_trainer = SimpleTrainer(**self.cnn_args)
+
+    def __set_initial_split(self):
+        dataset = Gasdb(self.cnn_args['dataset'])
+        total = dataset.ase_db.count()
+        train_size = int(0.64 * total)
+        val_size = int(0.16 * total)
+        test_size = total - train_size - val_size
+
+        self.cnn_args['dataset']['train_size'] = train_size
+        self.cnn_args['dataset']['val_size'] = val_size
+        self.cnn_args['dataset']['test_size'] = test_size
+
+    def __init_gp_trainer(self):
+        self.gp_args = {'Gp': ExactGP,
+                        'Optimizer': FullBatchLBFGS,
+                        'Likelihood': gpytorch.likelihoods.GaussianLikelihood,
+                        'Loss': gpytorch.mlls.ExactMarginalLogLikelihood}
+
+        self.gp_trainer = GPyTorchTrainer(**self.gp_args)
+
+    def train(self, indices, energies):
         '''
         Trains both the network and GP in series
 
         Args:
-            features?   ???
+            indices     A sequences of integers that map to the row numbers
+                        within the database that you want to train on
             energies    List of floats containing the adsorption energies
         '''
-        raise NotImplementedError
+        dataset = Gasdb(**self.cnn_args['dataset'])
 
-    def predict(self, docs):
+        # Make some arbitrary allocation for validation and test datasets. We
+        # won't really use them, but pytorch_geometric needs them to be
+        # specified to run.
+        train_indices = indices
+        val_test_indices = list(set(range(len(dataset))) - set(train_indices))
+        val_test_split_cutoff = int(0.8 * len(val_test_indices))
+        val_indices = val_test_indices[:val_test_split_cutoff]
+        test_indices = val_test_indices[-val_test_split_cutoff:]
+
+        train_loader = DataLoader(
+            dataset[indices],
+            batch_size=self.cnn_args['optimizer']['batch_size'],
+            shuffle=True,
+        )
+        val_loader = DataLoader(
+            dataset[val_indices],
+            batch_size=self.cnn_args['optimizer']['batch_size']
+        )
+        test_loader = DataLoader(
+            dataset[test_indices],
+            batch_size=self.cnn_args['optimizer']['batch_size']
+        )
+
+        self.conv_trainer.dataset = dataset
+        self.conv_trainer.train_loader = train_loader
+        self.conv_trainer.val_loader = val_loader
+        self.conv_trainer.test_loader = test_loader
+
+        self.trainer.train()
+
+    def predict(self, indices):
         '''
         Use the whole pipeline to make adsorption energy predictions
 
-        Args:
-            features?   ???
         Returns:
             predictions     `np.array` of predictions for each site
-            uncertainties   `np.array` that contains the "uncertainty
-                            prediction" for each site. In this case, it'll
+            uncertainties   `np.array` that contains the 'uncertainty
+                            prediction' for each site. In this case, it'll
                             be the GP's predicted standard deviation.
         '''
-        raise NotImplementedError
+        predictions, uncertainties = self.trainer.predict(self.cnn_args['dataset']['src'])
+        predictions = predictions.detach().cpu().numpy()
+        uncertainties = uncertainties.detach().cpu().numpy()
+        return predictions, uncertainties
