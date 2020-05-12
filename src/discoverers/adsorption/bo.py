@@ -36,6 +36,10 @@ class BayesianOptimizer(AdsorptionDiscovererBase):
         self.model = BayesianLinearModel()
         super().__init__(*args, **kwargs)
 
+    @property
+    def cache_location(self):
+        return './bo_caches/'
+
     def _train(self, next_batch):
         '''
         Calculate the residuals of the current training batch, then retrain on

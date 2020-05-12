@@ -33,6 +33,10 @@ class RandomSearcher(AdsorptionDiscovererBase):
         self.model = NullModel()
         super().__init__(*args, **kwargs)
 
+    @property
+    def cache_location(self):
+        return './rs_caches/'
+
     def _train(self, next_batch):
         '''
         While random search does not technically use a model, we must still
