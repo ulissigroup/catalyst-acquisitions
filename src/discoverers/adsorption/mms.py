@@ -9,11 +9,11 @@ __author__ = 'Kevin Tran'
 __email__ = 'ktran@andrew.cmu.edu'
 
 
+import numpy as np
 from scipy.stats import norm
 import gpytorch
 from torch_geometric.data import DataLoader
 
-# from gaspy.gasdb import get_surface_from_doc
 from ocpmodels.trainers.simple_trainer import SimpleTrainer
 from ocpmodels.models.gps import ExactGP
 from ocpmodels.commow.lbfgs import FullBatchLBFGS
@@ -86,39 +86,6 @@ class MultiscaleDiscoverer(AdsorptionDiscovererBase):
         self.model.train(self.training_features)
         self._save_current_run()
 
-    def _choose_next_batch(self):
-        '''
-        Choose the next batch using our Myopic Multiscale Sampling (MMS)
-        method.
-
-        Returns:
-            features    The indices of the database rows that this method chose
-                        to investigate next
-            labels      The labels that this method chose to investigate next
-        '''
-        # Use the energies to calculate probabilities of selecting each site
-        energies, _ = self.model.predict(self.sampling_features)
-        gaussian_distribution = norm(loc=self.target_energy, scale=self.assumed_stdev)
-        probability_densities = [gaussian_distribution.pdf(energy) for energy in energies]
-
-        # Perform a weighted shuffling of the sampling space such that sites
-        # with better energies are more likely to be early in the list
-        features, labels, surfaces = self.weighted_shuffle(self.sampling_features,
-                                                           self.sampling_labels,
-                                                           self.sampling_surfaces,
-                                                           weights=probability_densities)
-        self.sampling_features = features
-        self.sampling_labels = labels
-        self.sampling_surfaces = surfaces
-
-        # Now that the samples are sorted, find the next ones and add them to
-        # the training set
-        features, labels, surfaces = self._pop_next_batch()
-        self.training_features.extend(features)
-        self.training_labels.extend(labels)
-        self.training_surfaces.extend(surfaces)
-        return features, labels
-
     def get_surfaces_from_indices(self, indices):
         surfaces = []
 
@@ -132,6 +99,201 @@ class MultiscaleDiscoverer(AdsorptionDiscovererBase):
             surfaces.append(surface)
 
         return surfaces
+
+    def _choose_next_batch(self):
+        '''
+        Choose the next batch using our Myopic Multiscale Sampling (MMS)
+        method.
+
+        Returns:
+            features    The indices of the database rows that this method chose
+                        to investigate next
+            labels      The labels that this method chose to investigate next
+        '''
+        features = []
+        labels = []
+        surfaces = []
+
+        # Choose `self.batch_size` samples
+        site_energies = self._concatenate_predicted_energies()
+        for _ in range(self.batch_size):
+
+            # Use the site energies to pick the bulk/surface/site we want next
+            surface_values, bulk_values = self._calculate_surface_and_bulk_values(site_energies)
+            mpid = self._select_bulk(bulk_values)
+            surface = self._select_surface(mpid, surface_values)
+            index, energy = self._select_site(surface, site_energies)
+
+            # Update the batch information
+            features.append(index)
+            labels.append(energy)
+            surfaces.append(surface)
+
+        # Assign the organized sampling space such that higher-value samples
+        # appear earlier in the lists
+        self.sampling_features = features
+        self.sampling_labels = labels
+        self.sampling_surfaces = surfaces
+
+        # Now that the samples are sorted, find the next ones and add them to
+        # the training set
+        features, labels, surfaces = self._pop_next_batch()
+        self.training_features.extend(features)
+        self.training_labels.extend(labels)
+        self.training_surfaces.extend(surfaces)
+        return features, labels
+
+    def _calculate_surface_and_bulk_values(self, site_energies):
+        '''
+        Light wrapper to use a set of site energies to calculate surface and
+        bulk values.
+        '''
+        surface_energies = self.calculate_low_coverage_binding_energies_by_surface(site_energies)
+        surface_values = self.calculate_surface_values(surface_energies)
+        bulk_values = self.calculate_bulk_values(surface_values)
+        return surface_values, bulk_values
+
+    def _select_bulk(self, bulk_values):
+        '''
+        Selects which bulk to sample next using probability of incorrect
+        classification. See
+        http://www.cs.cmu.edu/~schneide/bryanba_nips2005.pdf for more details.
+
+        Arg:
+            bulk_values     The output of the `self.calculate_bulk_values`
+                            method.
+        Returns:
+            mpid    A string indicating the Materials Project ID of the bulk
+                    that we should sample next
+        '''
+        # Figure out the cutoff for the bulk value around which we will be
+        # classifying bulks as "good" or "bad"
+        all_bulk_values = np.array([values.mean() for values in bulk_values.values()])
+        cutoff = norm.ppf(self.quantile_cutoff,
+                          loc=all_bulk_values.mean(),
+                          scale=all_bulk_values.std())
+
+        # The acquisition value of each bulk is the probability of incorrect
+        # classification
+        acquisition_values = []
+        for mpid, values in bulk_values.items():
+            mean = values.mean()
+            std = values.std()
+            cdf = norm.cdf(x=cutoff, loc=mean, scale=std)
+            acq_val = min(cdf, 1-cdf)
+            acquisition_values.append((acq_val, mpid))
+
+        # Find the highest acquisition value, then return the corresponding
+        # mpid
+        acquisition_values.sort(reverse=True)
+        mpid = acquisition_values[0][1]
+        return mpid
+
+    def _select_surface(self, mpid, surface_values):
+        '''
+        Selects which surface to sample next using active learning/uncertainty
+        sampling. For a better explanation of uncertainty sampling, see
+        http://burrsettles.com/pub/settles.activelearning.pdf
+
+        Arg:
+            mpid            A string indicating the Materials Project ID of the
+                            surface we need to select
+            surface_values  The output of the `self.calculate_surface_values`
+                            method
+        Returns:
+            surface     A 4-tuple that contains the (mpid, miller, shift, top)
+                        of the surface, where mpid is a string, miller is a
+                        3-tuple of integers, the shift is a float, and top is a
+                        Boolean
+        '''
+        acquisition_values = [(values.std(), surface)
+                              for surface, values in surface_values.items()
+                              if surface[0] == mpid]
+        acquisition_values.sort(reverse=True)
+        surface = acquisition_values[0][1]
+        return surface
+
+    def _select_site(self, surface, site_energies):
+        '''
+        Selects which site to sample next using active optimization.
+        Specifically, we use expected improvement. An explanation of the
+        formulas used here can be found on
+        http://krasserm.github.io/2018/03/21/bayesian-optimization/.
+
+        Note that this method will also modify one of the standard deviation
+        elements in the `site_energies` argument in-place. Specifically:
+        When this method "selects" a site, it simultaneously sets the predicted
+        uncertainty to 0 to "hallucinate/pretend" that we sampled it. Doing
+        this helps us ensure that we won't resample similar calculations within
+        a batch of parallel samples.
+
+        Here are the equations we used:
+            EI = E[max(f(x) - f(x+), 0)]
+               = (mu(x) - f(x+) - xi) * Phi(Z) + sigma(x)*phi(Z) if sigma(x) > 0
+                                                                    sigma(x) == 0
+            Z = (mu(x) - f(x+) - xi) / sigma(x)     if sigma(x) > 0
+                0                                      sigma(x) == 0
+
+        EI = expected improvement
+        mu(x) = GP's estimate of the mean value at x
+        sigma(x) = GP's standard error/standard deviation estimate at x
+        f(x+) = best objective value observed so far
+        xi = exploration/exploitation balance factor (higher value promotes exploration)
+        Phi(Z) = cumulative distribution function of normal distribution at Z
+        phi(Z) = probability distribution function of normal distribution at Z
+        Z = test statistic at x
+
+        Arg:
+            surface         A 4-tuple that contains the (mpid, miller, shift,
+                            top) of the surface, where mpid is a string, miller
+                            is a 3-tuple of integers, the shift is a float, and
+                            top is a Boolean
+            site_energies   The output of the
+                            `self._concatenate_predicted_energies` method.
+        Returns:
+            db_index    An integer indicating the row number of the site within
+                        our source database
+            dft_energy  The true, DFT-calculated adsorption energy of the
+                        selected site
+        '''
+        # Grab the indices of all the sites
+        training_indices = self.training_features
+        sampling_indices = self.sampling_features
+        indices = training_indices + sampling_indices
+
+        # Parameters for the EI algorithm
+        f_best = min(energy for energy, _, _surface in site_energies if _surface == surface)
+        xi = 0.01
+
+        acquisition_values = []
+        for site_index, (db_index, site_info) in enumerate(zip(indices, site_energies)):
+            mu, sigma, _surface = site_info
+            # Only want to consider sites on the correct surface. And if the
+            # sigma is zero, then it's a site we've sampled before and
+            # therefore do not want to consider again.
+            if _surface == surface and sigma:
+                imp = mu - f_best - xi
+                Z = imp / sigma
+                Phi = norm.cdf(Z)
+                phi = norm.pdf(Z)
+                ei = imp * Phi + sigma * phi
+                acquisition_values.append((ei, db_index, site_index))
+
+        # We want the "lowest" EI because we want to find the minimum energy on
+        # this surface
+        acquisition_values.sort()
+        db_index = acquisition_values[0][1]
+
+        # "Hallucinate" the item we just picked by setting its corresponding
+        # standard deviation prediction to 0
+        site_index = acquisition_values[0][2]
+        site_energies[1][site_index] = 0.
+
+        # We also need to get the DFT-calculated energy for later use
+        db = self.model.conv_trainer.dataset.ase_db
+        row = list(db.select(db_index))[0]
+        dft_energy = row['data']['adsorption_energy']
+        return db_index, dft_energy
 
 
 class CFGPWrapper:
@@ -215,6 +377,7 @@ class CFGPWrapper:
         val_indices = val_test_indices[:val_test_split_cutoff]
         test_indices = val_test_indices[-val_test_split_cutoff:]
 
+        # Update the data loaders
         train_loader = DataLoader(
             dataset[indices],
             batch_size=self.cnn_args['optimizer']['batch_size'],
@@ -228,12 +391,12 @@ class CFGPWrapper:
             dataset[test_indices],
             batch_size=self.cnn_args['optimizer']['batch_size']
         )
-
         self.conv_trainer.dataset = dataset
         self.conv_trainer.train_loader = train_loader
         self.conv_trainer.val_loader = val_loader
         self.conv_trainer.test_loader = test_loader
 
+        # Train on the updated data
         self.trainer.train()
 
     def predict(self, indices):
