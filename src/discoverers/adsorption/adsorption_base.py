@@ -151,7 +151,7 @@ class AdsorptionDiscovererBase(ActiveDiscovererBase):
         f_one = 2 * (precision * recall) / (precision + recall)
         self.reward_history.append(f_one)
 
-    def calculate_bulk_values(self, current=True):
+    def calculate_bulk_values(self, values_by_surface=None, current=True):
         '''
         Calculates the distributions of values of each bulk. Requires the
         `self.model` attribute to be able to accept `self.sampling_features`
@@ -160,21 +160,30 @@ class AdsorptionDiscovererBase(ActiveDiscovererBase):
         standard deviations/uncertainties.
 
         Args:
-            current     A Boolean indicating whether you want the "current"
-                        results or the final ones. "Current" results come from
-                        data aggregations of already "sampled" points with zero
-                        uncertainty and "unsampled" points that whose means and
-                        uncertainties are calculated by `self.model`. So if
-                        this argument is `True`, then this will return what the
-                        hallucination should think the current state should be.
-                        If `False`, then this will return the true results as
-                        per all the real data fed into it.
+            values_by_surface   The output of the
+                                `self.calculate_surface_values` method. It's
+                                made explicit so that you can modify it if you
+                                want. If `None`, it will call the method and
+                                use the default output.
+            current             A Boolean indicating whether you want the
+                                "current" results or the final ones. "Current"
+                                results come from data aggregations of already
+                                "sampled" points with zero uncertainty and
+                                "unsampled" points that whose means and
+                                uncertainties are calculated by `self.model`.
+                                So if this argument is `True`, then this will
+                                return what the hallucination should think the
+                                current state should be. If `False`, then this
+                                will return the true results as per all the real
+                                data fed into it. Unused if you supply the
+                                `values_by_surface` argument.
         Returns:
-            values_by_surface   A dictionary whose keys are the bulk identifier
-                                and whose values are a `np.array` of floats
-                                indicating the "value" of each bulk.
+            bulk_values     A dictionary whose keys are the bulk identifier
+                            and whose values are a `np.array` of floats
+                            indicating the "value" of each bulk.
         '''
-        values_by_surface = self.calculate_surface_values(current)
+        if values_by_surface is None:
+            values_by_surface = self.calculate_surface_values(current=current)
 
         # Concatenate all the values for each surface onto their corresponding
         # bulks
@@ -192,29 +201,41 @@ class AdsorptionDiscovererBase(ActiveDiscovererBase):
                        for bulk_id, surface_values in surface_values_by_bulk.items()}
         return bulk_values
 
-    def calculate_surface_values(self, current=True):
+    def calculate_surface_values(self, energies_by_surface=None, current=True):
         '''
         Calculates the "value" of each surface in the discovery space by
         assuming an Arrhenius-like relationship between the low coverage
         binding energy of the surface and its value.
 
         Args:
-            current     A Boolean indicating whether you want the "current"
-                        results or the final ones. "Current" results come from
-                        data aggregations of already "sampled" points with zero
-                        uncertainty and "unsampled" points that whose means and
-                        uncertainties are calculated by `self.model`. So if
-                        this argument is `True`, then this will return what the
-                        hallucination should think the current state should be.
-                        If `False`, then this will return the true results as
-                        per all the real data fed into it.
+            energies_by_surface    The output of the
+                                    `self.calculate_low_coverage_binding_energies_by_surface`
+                                    method. Made an explicit argument so you
+                                    can modify this argument if you want. If
+                                    `None`, then it will call the method and
+                                    grab defaults.
+            current                 A Boolean indicating whether you want the
+                                    "current" results or the final ones.
+                                    "Current" results come from data
+                                    aggregations of already "sampled" points
+                                    with zero uncertainty and "unsampled"
+                                    points that whose means and uncertainties
+                                    are calculated by `self.model`. So if this
+                                    argument is `True`, then this will return
+                                    what the hallucination should think the
+                                    current state should be.  If `False`, then
+                                    this will return the true results as per
+                                    all the real data fed into it. Unused if
+                                    you supply the `energies_by_surface`
+                                    argument.
         Returns:
             values_by_surface   A dictionary whose keys are a 4-tuple
                                 containing surface information (mpid, miller,
                                 shift, top) and whose values are a `np.array`
                                 of floats indicating the "value" of a surface.
         '''
-        energies_by_surface = self.calculate_low_coverage_binding_energies_by_surface(current)
+        if energies_by_surface is None:
+            energies_by_surface = self.calculate_low_coverage_binding_energies_by_surface(current=current)
 
         # Perform an Arrhenius-like transformation of the binding energies to
         # get a rough estimate of value/activity.
@@ -226,22 +247,34 @@ class AdsorptionDiscovererBase(ActiveDiscovererBase):
 
         return values_by_surface
 
-    def calculate_low_coverage_binding_energies_by_surface(self, current=True):
+    def calculate_low_coverage_binding_energies_by_surface(self,
+                                                           concatenated_energies=None,
+                                                           current=True):
         '''
         Find/predicts the low coverage binding energies for each surface in the
         discovery space. Uses both DFT data (with zero uncertainty) and ML data
         (with predicted uncertainty).
 
         Arg:
-            current     A Boolean indicating whether you want the "current"
-                        results or the final ones. "Current" results come from
-                        data aggregations of already "sampled" points with zero
-                        uncertainty and "unsampled" points that whose means and
-                        uncertainties are calculated by `self.model`. So if
-                        this argument is `True`, then this will return what the
-                        hallucination should think the current state should be.
-                        If `False`, then this will return the true results as
-                        per all the real data fed into it.
+            concatenated_energies   The output of either the
+                                    `self._concatenate_predicted_energies` or
+                                    `self.concatenate_true_energies` methods.
+                                    Or you can take them and modify them as you
+                                    wish.
+            current                 A Boolean indicating whether you want the
+                                    "current" results or the final ones.
+                                    "Current" results come from data
+                                    aggregations of already "sampled" points
+                                    with zero uncertainty and "unsampled"
+                                    points that whose means and uncertainties
+                                    are calculated by `self.model`. So if this
+                                    argument is `True`, then this will return
+                                    what the hallucination should think the
+                                    current state should be.  If `False`, then
+                                    this will return the true results as per
+                                    all the real data fed into it. Unused if
+                                    you supply the `concantenated_energies`
+                                    argument.
         Returns:
             low_cov_energies_by_surface     A dictionary whose keys are a
                                             4-tuple containing surface
@@ -252,13 +285,16 @@ class AdsorptionDiscovererBase(ActiveDiscovererBase):
                                             energies of each surface.
         '''
         # Grab the correct dataset
-        if current is True:
-            energies, stdevs, surfaces = self._concatenate_predicted_energies()
-        elif current is False:
-            energies, stdevs, surfaces = self._concatenate_true_energies()
+        if concatenated_energies is None:
+            if current is True:
+                energies, stdevs, surfaces = self._concatenate_predicted_energies()
+            elif current is False:
+                energies, stdevs, surfaces = self._concatenate_true_energies()
+            else:
+                raise ValueError('The "current" argument should be Boolean, but is '
+                                 'instead %s.' % type(current))
         else:
-            raise ValueError('The "current" argument should be Boolean, but is '
-                             'instead %s.' % type(current))
+            energies, stdevs, surfaces = concatenated_energies
 
         # "Sample" all the sites `self.n_samples` times
         energies_by_surface = {}
