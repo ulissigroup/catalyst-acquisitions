@@ -151,6 +151,19 @@ class AdsorptionDiscovererBase(ActiveDiscovererBase):
         f_one = 2 * (precision * recall) / (precision + recall)
         self.reward_history.append(f_one)
 
+    def _update_proxy_reward(self):
+        '''
+        This method updates a self.proxy_reward_history, which stores a proxy
+        to our reward so far.
+        '''
+        # Calculate current bulk classes
+        current_bulk_values = self.calculate_bulk_values(current=True)
+        _, good_bulk_value_list = self._classify_bulks(current_bulk_values,
+                                                       return_list=True)
+
+        proxy_reward = np.min([val for (b, val) in good_bulk_value_list])
+        self.proxy_reward_history.append(proxy_reward)
+
     def calculate_bulk_values(self, values_by_surface=None, current=True):
         '''
         Calculates the distributions of values of each bulk. Requires the
@@ -388,7 +401,7 @@ class AdsorptionDiscovererBase(ActiveDiscovererBase):
         surfaces = sampled_surfaces + unsampled_surfaces
         return energies, stdevs, surfaces
 
-    def _classify_bulks(self, bulk_values):
+    def _classify_bulks(self, bulk_values, return_list=False):
         '''
         Uses the true bulk values to classify each bulk as "good" or "not good"
         according to whether or not its bulk value quantile is above or below
@@ -399,6 +412,8 @@ class AdsorptionDiscovererBase(ActiveDiscovererBase):
                             values are... the value of the bulk. Yeah this
                             naming convention isn't the best. See
                             `self.calculate_bulk_values`.
+            return_list     If True, compute and return a list of (bulk, value)
+                            for all bulks above the threshold.
         Returns:
             good_bulks  A dictionary whose values are the bulk ids and whose
                         values are Booleans. `True` means that the bulk is
@@ -416,7 +431,12 @@ class AdsorptionDiscovererBase(ActiveDiscovererBase):
         cutoff = round((1-self.quantile_cutoff) * len(sorted_bulks))
         good_bulks = {bulk: True if i <= cutoff else False
                       for i, (bulk, value) in enumerate(sorted_bulks)}
-        return good_bulks
+        if return_list:
+            good_bulk_value_list = [(bulk, value) for i, (bulk, value) in
+                                    enumerate(sorted_bulks) if i <= cutoff]
+            return good_bulks, good_bulk_value_list
+        else:
+            return good_bulks
 
     def _calculate_precision(self, current_bulk_classes):
         '''

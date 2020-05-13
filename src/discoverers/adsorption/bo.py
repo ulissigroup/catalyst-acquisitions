@@ -164,6 +164,7 @@ class BayesianLinearModel:
         except Exception:
             predictions = np.zeros(len(docs))
             uncertainties = np.ones(len(docs))
+            print('Model prediction: EXCEPTION OCCURED')
 
         return predictions, uncertainties
 
