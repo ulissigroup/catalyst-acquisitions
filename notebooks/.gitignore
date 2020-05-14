@@ -1,0 +1,4 @@
+*.db
+checkpoints/
+logs/
+data.pt
