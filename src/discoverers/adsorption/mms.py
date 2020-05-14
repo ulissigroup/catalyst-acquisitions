@@ -186,6 +186,10 @@ class MultiscaleDiscoverer(AdsorptionDiscovererBase):
             acq_val = min(cdf, 1-cdf)
             if not np.isnan(acq_val):
                 acquisition_values.append((acq_val, mpid))
+            # If the acquistion value calculation "falied", give it a value of
+            # 0 so we don't prioritize it highly
+            else:
+                acquisition_values.append((0., mpid))
 
         # Order the bulks
         acquisition_values.sort(reverse=True)
