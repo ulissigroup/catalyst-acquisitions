@@ -9,6 +9,7 @@ __email__ = 'ktran@andrew.cmu.edu'
 
 import os
 from copy import deepcopy
+import warnings
 import pickle
 from pathlib import Path
 import numpy as np
@@ -80,6 +81,14 @@ class AdsorptionDiscovererBase(ActiveDiscovererBase):
                                 You should keep it `True` unless you're doing a
                                 warm start (manually).
         '''
+        # Sometimes our databases like to turn the Miller indices in our
+        # `surface` arguments into numpy arrays when they should be tuples. Fix
+        # that here.
+        sampling_surfaces = [(mpid, tuple(index for index in miller), shift, top)
+                             for mpid, miller, shift, top in sampling_surfaces]
+        training_surfaces = [(mpid, tuple(index for index in miller), shift, top)
+                             for mpid, miller, shift, top in training_surfaces]
+
         # Additional attributes for adsorption energies
         self.target_energy = target_energy
         self.sampling_surfaces = sampling_surfaces
@@ -299,8 +308,12 @@ class AdsorptionDiscovererBase(ActiveDiscovererBase):
         # "Sample" all the sites `self.n_samples` times
         energies_by_surface = {}
         for energy, stdev, surface in zip(energies, stdevs, surfaces):
-            surface = tuple(surface)
-            samples = norm.rvs(loc=energy, scale=stdev, size=self.n_samples)
+            try:
+                samples = norm.rvs(loc=energy, scale=stdev, size=self.n_samples)
+            except ValueError:
+                assert np.isnan(stdev)
+                samples = norm.rvs(loc=energy, scale=0., size=self.n_samples)
+                warnings.warn('Got a `nan` for stdev; setting it to 0 instead', RuntimeWarning)
             samples = np.array(samples).reshape((1, -1))
             try:
                 energies_by_surface[surface] = np.concatenate((energies_by_surface[surface], samples), axis=0)
@@ -351,7 +364,7 @@ class AdsorptionDiscovererBase(ActiveDiscovererBase):
 
         # If there's nothing left to concatenate, then just return the already
         # sampled information
-        except np.core._exceptions.AxisError:
+        except (np.core._exceptions.AxisError, RuntimeError):
             return sampled_energies, sampled_stdevs, sampled_surfaces
 
     def _concatenate_true_energies(self):

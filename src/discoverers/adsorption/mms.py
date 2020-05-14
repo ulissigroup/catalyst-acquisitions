@@ -16,7 +16,7 @@ from torch_geometric.data import DataLoader
 
 from ocpmodels.trainers.simple_trainer import SimpleTrainer
 from ocpmodels.models.gps import ExactGP
-from ocpmodels.commow.lbfgs import FullBatchLBFGS
+from ocpmodels.common.lbfgs import FullBatchLBFGS
 from ocpmodels.trainers.gpytorch_trainer import GPyTorchTrainer
 from ocpmodels.trainers.cfgp_trainer import CfgpTrainer
 from ocpmodels.datasets.gasdb import Gasdb
@@ -89,10 +89,11 @@ class MultiscaleDiscoverer(AdsorptionDiscovererBase):
     def get_surfaces_from_indices(self, indices):
         surfaces = []
 
-        for row in self.trainer.conv_trainer.dataset.ase_db.select(indices):
-            data = row.data
+        db = self.model.dataset.ase_db
+        for index in indices:
+            data = db.get(index).data
             mpid = data['mpid']
-            miller = data['miller']
+            miller = tuple(index for index in data['miller'])
             shift = data['shift']
             top = data['top']
             surface = (mpid, miller, shift, top)
@@ -129,18 +130,18 @@ class MultiscaleDiscoverer(AdsorptionDiscovererBase):
             labels.append(energy)
             surfaces.append(surface)
 
-        # Assign the organized sampling space such that higher-value samples
-        # appear earlier in the lists
-        self.sampling_features = features
-        self.sampling_labels = labels
-        self.sampling_surfaces = surfaces
+        # Remove the samples from the sampling space
+        for feature in features:
+            sampling_space_index = self.sampling_features.index(feature)
+            del self.sampling_features[sampling_space_index]
+            del self.sampling_labels[sampling_space_index]
+            del self.sampling_surfaces[sampling_space_index]
 
-        # Now that the samples are sorted, find the next ones and add them to
-        # the training set
-        features, labels, surfaces = self._pop_next_batch()
+        # Add the new batch to the training set
         self.training_features.extend(features)
         self.training_labels.extend(labels)
         self.training_surfaces.extend(surfaces)
+        self.next_batch_number += 1
         return features, labels
 
     def _calculate_surface_and_bulk_values(self, site_energies):
@@ -256,18 +257,21 @@ class MultiscaleDiscoverer(AdsorptionDiscovererBase):
             dft_energy  The true, DFT-calculated adsorption energy of the
                         selected site
         '''
+        # Parse the input
+        energies, stdevs, surfaces = site_energies
+
         # Grab the indices of all the sites
         training_indices = self.training_features
         sampling_indices = self.sampling_features
         indices = training_indices + sampling_indices
 
         # Parameters for the EI algorithm
-        f_best = min(energy for energy, _, _surface in site_energies if _surface == surface)
+        f_best = min(energy for energy, _surface in zip(energies, surfaces)
+                     if _surface == surface)
         xi = 0.01
 
         acquisition_values = []
-        for site_index, (db_index, site_info) in enumerate(zip(indices, site_energies)):
-            mu, sigma, _surface = site_info
+        for site_index, (db_index, mu, sigma, _surface) in enumerate(zip(indices, energies, stdevs, surfaces)):
             # Only want to consider sites on the correct surface. And if the
             # sigma is zero, then it's a site we've sampled before and
             # therefore do not want to consider again.
@@ -290,7 +294,7 @@ class MultiscaleDiscoverer(AdsorptionDiscovererBase):
         site_energies[1][site_index] = 0.
 
         # We also need to get the DFT-calculated energy for later use
-        db = self.model.conv_trainer.dataset.ase_db
+        db = self.model.dataset.ase_db
         row = list(db.select(db_index))[0]
         dft_energy = row['data']['adsorption_energy']
         return db_index, dft_energy
@@ -322,7 +326,7 @@ class CFGPWrapper:
                  'fc_feat_size': 128,
                  'num_fc_layers': 4,
                  'num_graph_conv_layers': 6}
-        dataset = {'src': db_dir},
+        dataset = {'src': db_dir}
         optimizer = {'batch_size': 64,
                      'lr_gamma': 0.1,
                      'lr_initial': 0.001,
@@ -335,13 +339,13 @@ class CFGPWrapper:
                          'dataset': dataset,
                          'optimizer': optimizer,
                          'identifier': 'cnn'}
-        self.__set_initial_split(dataset)
+        self.__set_initial_split()
 
         self.cnn_trainer = SimpleTrainer(**self.cnn_args)
 
     def __set_initial_split(self):
-        dataset = Gasdb(self.cnn_args['dataset'])
-        total = dataset.ase_db.count()
+        self.dataset = Gasdb(self.cnn_args['dataset'])
+        total = self.dataset.ase_db.count()
         train_size = int(0.64 * total)
         val_size = int(0.16 * total)
         test_size = total - train_size - val_size
@@ -366,35 +370,35 @@ class CFGPWrapper:
             indices     A sequences of integers that map to the row numbers
                         within the database that you want to train on
         '''
-        dataset = Gasdb(**self.cnn_args['dataset'])
-
         # Make some arbitrary allocation for validation and test datasets. We
         # won't really use them, but pytorch_geometric needs them to be
         # specified to run.
         train_indices = indices
-        val_test_indices = list(set(range(len(dataset))) - set(train_indices))
+        val_test_indices = list(set(range(len(self.dataset))) - set(train_indices))
         val_test_split_cutoff = int(0.8 * len(val_test_indices))
         val_indices = val_test_indices[:val_test_split_cutoff]
         test_indices = val_test_indices[-val_test_split_cutoff:]
 
         # Update the data loaders
         train_loader = DataLoader(
-            dataset[indices],
+            self.dataset[indices],
             batch_size=self.cnn_args['optimizer']['batch_size'],
             shuffle=True,
         )
         val_loader = DataLoader(
-            dataset[val_indices],
+            self.dataset[val_indices],
             batch_size=self.cnn_args['optimizer']['batch_size']
         )
         test_loader = DataLoader(
-            dataset[test_indices],
+            self.dataset[test_indices],
             batch_size=self.cnn_args['optimizer']['batch_size']
         )
-        self.conv_trainer.dataset = dataset
-        self.conv_trainer.train_loader = train_loader
-        self.conv_trainer.val_loader = val_loader
-        self.conv_trainer.test_loader = test_loader
+        self.trainer.train_loader = train_loader
+        self.trainer.val_loader = val_loader
+        self.trainer.test_loader = test_loader
+        self.trainer.conv_trainer.train_loader = train_loader
+        self.trainer.conv_trainer.val_loader = val_loader
+        self.trainer.conv_trainer.test_loader = test_loader
 
         # Train on the updated data
         self.trainer.train()
@@ -412,8 +416,13 @@ class CFGPWrapper:
                             prediction' for each site. In this case, it'll
                             be the GP's predicted standard deviation.
         '''
+        # Decrease all indices by 1 because we're using them to query the
+        # `self.dataset` class, which is indexed to 0. But indices are actually
+        # indexed to 1, which is consistent with the `self.dataset.ase_db`.
+        indices = [index-1 for index in indices]
+
         data_loader = DataLoader(
-            self.conv_trainer.dataset[indices],
+            self.dataset[indices],
             batch_size=self.cnn_args['optimizer']['batch_size']
         )
 
