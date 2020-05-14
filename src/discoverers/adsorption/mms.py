@@ -9,6 +9,7 @@ __author__ = 'Kevin Tran'
 __email__ = 'ktran@andrew.cmu.edu'
 
 
+import os
 from collections import defaultdict
 import numpy as np
 from scipy.stats import norm
@@ -143,6 +144,10 @@ class MultiscaleDiscoverer(AdsorptionDiscovererBase):
         self.training_labels.extend(labels)
         self.training_surfaces.extend(surfaces)
         self.next_batch_number += 1
+
+        # Checkpoint the model state
+        self.model.trainer.save_state()
+
         return features, labels
 
     def _calculate_surface_and_bulk_values(self, site_energies):
@@ -328,6 +333,24 @@ class MultiscaleDiscoverer(AdsorptionDiscovererBase):
         row = list(db.select(db_index))[0]
         dft_energy = row['data']['adsorption_energy']
         return db_index, dft_energy, surface
+
+    def load_last_run(self):
+        '''
+        Load the last state of the hallucination along with the last model we
+        used.
+        '''
+        # Load last hallucination state
+        super().load_last_run()
+
+        # Guess the location of the last CGCNN checkpoint
+        cp_folders = os.listdir()
+        cp_folders.sort()
+        nn_checkpoint_file = cp_folders[-1] + '/checkpoint.pt'
+
+        # Load last model state
+        self.model.trainer.load_state(nn_checkpoint_file=nn_checkpoint_file,
+                                      gp_checkpoint_file='gp_state.pth',
+                                      normalizer_path='normalizer.pth')
 
 
 class CFGPWrapper:
