@@ -67,6 +67,7 @@ class ActiveDiscovererBase:
         '''
         # Attributes we use to judge the discovery
         self.reward_history = [0.]
+        self.proxy_reward_history = [0.]
         self.residuals = []
         self.uncertainties = []
 
@@ -107,6 +108,7 @@ class ActiveDiscovererBase:
         next_batch = self._choose_next_batch()
         self._train(next_batch)
         self._update_reward()
+        self._update_proxy_reward()
 
         # Make sure it was done correctly
         self.__assert_correct_hallucination()
@@ -146,6 +148,15 @@ class ActiveDiscovererBase:
         This method should take the output of the `_choose_next_batch` method
         and then use it to calculate the new current reward. It should then
         append it to the `reward_history` attribute.
+        '''
+        raise NotImplementedError
+
+    @abstractmethod
+    def _update_proxy_reward(self):
+        '''
+        This method should take the output of the `_choose_next_batch` method
+        and then use it to calculate a proxy to the current reward. It should
+        then append it to the `proxy_reward_history` attribute.
         '''
         raise NotImplementedError
 
@@ -239,7 +250,8 @@ class ActiveDiscovererBase:
         return features, labels
 
     def plot_performance(self, window=20, smoother='mean', reward_name=None,
-                         accuracy_units='', uncertainty_units=''):
+                         proxy_reward_name=None, accuracy_units='',
+                         uncertainty_units=''):
         '''
         Light wrapper for plotting various performance metrics over the course
         of the discovery.
@@ -257,21 +269,24 @@ class ActiveDiscovererBase:
             uncertainty_units   A string indicating the labeling units you want to
                                 use for the uncertainty figure
         Returns:
-            reward_fig      The matplotlib figure object for the reward plot
-            accuracy_fig    The matplotlib figure object for the accuracy
-            uncertainty_fig The matplotlib figure object for the uncertainty
-            calibration_fig The matplotlib figure object for the calibration
-            nll_fig         The matplotlib figure object for the negative log
-                            likelihood
+            reward_fig          The matplotlib figure object for the reward plot
+            proxy_reward_fig    The matplotlib figure object for the proxy reward plot
+            accuracy_fig        The matplotlib figure object for the accuracy
+            uncertainty_fig     The matplotlib figure object for the uncertainty
+            calibration_fig     The matplotlib figure object for the calibration
+            nll_fig             The matplotlib figure object for the negative
+                                log likelihood
         '''
         reward_fig = self.plot_reward(reward_name)
+        proxy_reward_fig = self.plot_proxy_reward(proxy_reward_name)
         accuracy_fig = self.plot_accuracy(window=window, smoother=smoother,
                                           unit=accuracy_units)
         uncertainty_fig = self.plot_uncertainty_estimates(window=window, smoother=smoother,
                                                           unit=uncertainty_units)
         calibration_fig = self.plot_calibration(window=window, smoother=smoother)
         nll_fig = self.plot_nll(window=window, smoother=smoother)
-        return reward_fig, accuracy_fig, uncertainty_fig, calibration_fig, nll_fig
+        return (reward_fig, proxy_reward_fig, accuracy_fig, uncertainty_fig,
+                calibration_fig, nll_fig)
 
     def plot_reward(self, reward_name=None):
         '''
@@ -290,6 +305,28 @@ class ActiveDiscovererBase:
             reward_name = 'Reward'
         _ = ax.set_xlabel('Batch number')
         _ = ax.set_ylabel(reward_name)
+        _ = ax.set_ylim(0., 1.)
+        _ = fig.set_size_inches(*FIG_SIZE)
+        _ = ax.get_xaxis().set_major_formatter(FORMATTER)
+        return fig
+
+    def plot_proxy_reward(self, proxy_reward_name=None):
+        '''
+        Plot the proxy reward vs. discovery batch number
+
+        Returns:
+            fig     The matplotlib figure object for the reward plot
+        '''
+        # Plot. Assume that the reward only updates per batch.
+        fig = plt.figure()
+        batch_numbers = list(range(len(self.proxy_reward_history)))
+        ax = sns.scatterplot(batch_numbers, self.proxy_reward_history)
+
+        # Format
+        if proxy_reward_name is None:
+            proxy_reward_name = 'Proxy Reward'
+        _ = ax.set_xlabel('Batch number')
+        _ = ax.set_ylabel(proxy_reward_name)
         _ = ax.set_ylim(0., 1.)
         _ = fig.set_size_inches(*FIG_SIZE)
         _ = ax.get_xaxis().set_major_formatter(FORMATTER)
