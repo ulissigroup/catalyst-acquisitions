@@ -8,8 +8,8 @@ __email__ = 'ktran@andrew.cmu.edu'
 
 
 import os
-from copy import deepcopy
 import warnings
+from copy import deepcopy
 import pickle
 from pathlib import Path
 import numpy as np
@@ -323,10 +323,12 @@ class AdsorptionDiscovererBase(ActiveDiscovererBase):
         for energy, stdev, surface in zip(energies, stdevs, surfaces):
             try:
                 samples = norm.rvs(loc=energy, scale=stdev, size=self.n_samples)
+            # Sometimes stdev predictions go wrong. Move on if this happens
             except ValueError:
                 assert np.isnan(stdev)
-                samples = norm.rvs(loc=energy, scale=0., size=self.n_samples)
-                warnings.warn('Got a `nan` for stdev; setting it to 0 instead', RuntimeWarning)
+                warnings.warn('Just tried to sample site energy when std is '
+                              'nan. Ignored and moving on.', RuntimeWarning)
+                continue
             samples = np.array(samples).reshape((1, -1))
             try:
                 energies_by_surface[surface] = np.concatenate((energies_by_surface[surface], samples), axis=0)
