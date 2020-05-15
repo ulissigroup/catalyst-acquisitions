@@ -383,8 +383,8 @@ class CFGPWrapper:
         optimizer = {'batch_size': 64,
                      'lr_gamma': 0.1,
                      'lr_initial': 0.001,
-                     'lr_milestones': [100, 150],
-                     'max_epochs': 5,  # per hallucination batch
+                     'lr_milestones': [25, 45],
+                     'max_epochs': 50,  # per hallucination batch
                      'warmup_epochs': 10,
                      'warmup_factor': 0.2}
         self.cnn_args = {'task': task,
@@ -411,7 +411,9 @@ class CFGPWrapper:
         self.gp_args = {'Gp': ExactGP,
                         'Optimizer': FullBatchLBFGS,
                         'Likelihood': gpytorch.likelihoods.GaussianLikelihood,
-                        'Loss': gpytorch.mlls.ExactMarginalLogLikelihood}
+                        'Loss': gpytorch.mlls.ExactMarginalLogLikelihood,
+                        'kernel': gpytorch.kernels.MaternKernel(),
+                        'cov_matrix': gpytorch.distributions.MultivariateNormal}
 
         self.gp_trainer = GPyTorchTrainer(**self.gp_args)
 
@@ -454,7 +456,7 @@ class CFGPWrapper:
         self.trainer.conv_trainer.test_loader = test_loader
 
         # Train on the updated data
-        self.trainer.train()
+        self.trainer.train(n_training_iter=50)
 
     def predict(self, indices):
         '''
