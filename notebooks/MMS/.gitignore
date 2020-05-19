@@ -1,0 +1,5 @@
+*.pth
+checkpoints/
+logs/
+results/
+mms_caches/
