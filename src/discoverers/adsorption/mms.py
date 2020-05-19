@@ -127,27 +127,28 @@ class MultiscaleDiscoverer(AdsorptionDiscovererBase):
             ordered_surfaces = self._prioritize_surfaces(surface_values)
             index, energy, surface = self._select_site(ordered_bulks, ordered_surfaces, site_energies)
 
-            # Update the batch information
-            features.append(index)
-            labels.append(energy)
-            surfaces.append(surface)
+            # Remove the samples from the sampling space
+            try:
+                sampling_space_index = self.sampling_features.index(index)
+                del self.sampling_features[sampling_space_index]
+                del self.sampling_labels[sampling_space_index]
+                del self.sampling_surfaces[sampling_space_index]
 
-        # Remove the samples from the sampling space
-        for feature in features:
-            sampling_space_index = self.sampling_features.index(feature)
-            del self.sampling_features[sampling_space_index]
-            del self.sampling_labels[sampling_space_index]
-            del self.sampling_surfaces[sampling_space_index]
+                # Update the batch information
+                features.append(index)
+                labels.append(energy)
+                surfaces.append(surface)
 
-        # Add the new batch to the training set
-        self.training_features.extend(features)
-        self.training_labels.extend(labels)
-        self.training_surfaces.extend(surfaces)
-        self.next_batch_number += 1
+            # If the index is not in the sampling space, then we're probably
+            # done the hallucination.
+            except ValueError:
+                assert len(self.sampling_features) == 0
+                break
 
         # Checkpoint the model state
         self.model.trainer.save_state()
 
+        self.next_batch_number += 1
         return features, labels
 
     def _calculate_surface_and_bulk_values(self, site_energies):
@@ -277,13 +278,13 @@ class MultiscaleDiscoverer(AdsorptionDiscovererBase):
         # Grab the indices of all the sites
         training_indices = self.training_features
         sampling_indices = self.sampling_features
-        indices = training_indices + sampling_indices
+        db_indices = training_indices + sampling_indices
 
         # Parse/package the input for faster processing
         energies, stdevs, surfaces = site_energies
         parsed_sites = {mpid: {surface: [] for surface in ordered_surfaces[mpid]}
                         for mpid in ordered_bulks}
-        for site_index, (db_index, energy, std, surface) in enumerate(zip(indices, energies, stdevs, surfaces)):
+        for site_index, (db_index, energy, std, surface) in enumerate(zip(db_indices, energies, stdevs, surfaces)):
             mpid = surface[0]
             # Only want to consider sites on the correct surface. And if the
             # sigma is zero, then it's a site we've sampled before and
@@ -334,7 +335,9 @@ class MultiscaleDiscoverer(AdsorptionDiscovererBase):
         dft_energy = row['data']['adsorption_energy']
         return db_index, dft_energy, surface
 
-    def load_last_run(self):
+    def load_last_run(self, nn_checkpoint_file=None,
+                      gp_checkpoint_file='gp_state.pth',
+                      normalizer_checkpoint_file='normalizer.pth'):
         '''
         Load the last state of the hallucination along with the last model we
         used.
@@ -343,14 +346,16 @@ class MultiscaleDiscoverer(AdsorptionDiscovererBase):
         super().load_last_run()
 
         # Guess the location of the last CGCNN checkpoint
-        cp_folders = os.listdir()
-        cp_folders.sort()
-        nn_checkpoint_file = cp_folders[-1] + '/checkpoint.pt'
+        if nn_checkpoint_file is None:
+            prefix = 'checkpoints'
+            cp_folders = os.listdir(prefix)
+            cp_folders.sort()
+            nn_checkpoint_file = os.path.join(prefix, cp_folders[-1], 'checkpoint.pt')
 
         # Load last model state
         self.model.trainer.load_state(nn_checkpoint_file=nn_checkpoint_file,
-                                      gp_checkpoint_file='gp_state.pth',
-                                      normalizer_path='normalizer.pth')
+                                      gp_checkpoint_file=gp_checkpoint_file,
+                                      normalizer_checkpoint_file=normalizer_checkpoint_file)
 
 
 class CFGPWrapper:
@@ -379,7 +384,10 @@ class CFGPWrapper:
                  'fc_feat_size': 128,
                  'num_fc_layers': 4,
                  'num_graph_conv_layers': 6}
-        dataset = {'src': db_dir}
+        dataset = {'src': db_dir,
+                   'train_size': 1,  # Not actually used
+                   'val_size': 0,
+                   'test_size': 0}
         optimizer = {'batch_size': 64,
                      'lr_gamma': 0.1,
                      'lr_initial': 0.001,
@@ -392,20 +400,9 @@ class CFGPWrapper:
                          'dataset': dataset,
                          'optimizer': optimizer,
                          'identifier': 'cnn'}
-        self.__set_initial_split()
 
         self.cnn_trainer = SimpleTrainer(**self.cnn_args)
-
-    def __set_initial_split(self):
         self.dataset = Gasdb(self.cnn_args['dataset'])
-        total = self.dataset.ase_db.count()
-        train_size = int(0.64 * total)
-        val_size = int(0.16 * total)
-        test_size = total - train_size - val_size
-
-        self.cnn_args['dataset']['train_size'] = train_size
-        self.cnn_args['dataset']['val_size'] = val_size
-        self.cnn_args['dataset']['test_size'] = test_size
 
     def __init_gp_trainer(self):
         self.gp_args = {'Gp': ExactGP,
@@ -425,38 +422,22 @@ class CFGPWrapper:
             indices     A sequences of integers that map to the row numbers
                         within the database that you want to train on
         '''
-        # Make some arbitrary allocation for validation and test datasets. We
-        # won't really use them, but pytorch_geometric needs them to be
-        # specified to run.
-        train_indices = indices
-        val_test_indices = list(set(range(len(self.dataset))) - set(train_indices))
-        val_test_split_cutoff = int(0.8 * len(val_test_indices))
-        val_indices = val_test_indices[:val_test_split_cutoff]
-        test_indices = val_test_indices[-val_test_split_cutoff:]
+        # Substract 1 from all the indices because they're 1-indexed for the
+        # ASE database, but here we'll be using them to grab things from the
+        # 0-indexed dataset object.
+        train_indices = [index - 1 for index in indices]
 
-        # Update the data loaders
+        # Update the data loader
         train_loader = DataLoader(
-            self.dataset[indices],
+            self.dataset[train_indices],
             batch_size=self.cnn_args['optimizer']['batch_size'],
             shuffle=True,
         )
-        val_loader = DataLoader(
-            self.dataset[val_indices],
-            batch_size=self.cnn_args['optimizer']['batch_size']
-        )
-        test_loader = DataLoader(
-            self.dataset[test_indices],
-            batch_size=self.cnn_args['optimizer']['batch_size']
-        )
         self.trainer.train_loader = train_loader
-        self.trainer.val_loader = val_loader
-        self.trainer.test_loader = test_loader
         self.trainer.conv_trainer.train_loader = train_loader
-        self.trainer.conv_trainer.val_loader = val_loader
-        self.trainer.conv_trainer.test_loader = test_loader
 
         # Train on the updated data
-        self.trainer.train(n_training_iter=50)
+        self.trainer.train(n_training_iter=100)
 
     def predict(self, indices):
         '''
