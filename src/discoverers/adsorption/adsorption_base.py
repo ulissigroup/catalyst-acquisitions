@@ -111,7 +111,8 @@ class AdsorptionDiscovererBase(ActiveDiscovererBase):
         self.cache_keys = {'training_features', 'training_labels', 'training_surfaces',
                            'sampling_features', 'sampling_labels', 'sampling_surfaces',
                            'residuals', 'uncertainties',
-                           'reward_history', 'batch_size', 'next_batch_number'}
+                           'reward_history', 'proxy_reward_history',
+                           'batch_size', 'next_batch_number'}
         self.cache_affix = '_discovery_cache.pkl'
         Path(self.cache_location).mkdir(exist_ok=True)
 
