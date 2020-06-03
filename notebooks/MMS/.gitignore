@@ -1,5 +1,4 @@
-*.pth
-checkpoints/
+checkpoints/*
 logs/
 results/
-mms_caches/
+mms_caches/*
