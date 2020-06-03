@@ -13,12 +13,9 @@ import os
 from collections import defaultdict
 import numpy as np
 from scipy.stats import norm
-import gpytorch
 from torch_geometric.data import DataLoader
 
 from ocpmodels.trainers.simple_trainer import SimpleTrainer
-from ocpmodels.models.gps import ExactGP
-from ocpmodels.common.lbfgs import FullBatchLBFGS
 from ocpmodels.trainers.gpytorch_trainer import GPyTorchTrainer
 from ocpmodels.trainers.cfgp_trainer import CfgpTrainer
 from ocpmodels.datasets.gasdb import Gasdb
@@ -405,14 +402,7 @@ class CFGPWrapper:
         self.dataset = Gasdb(self.cnn_args['dataset'])
 
     def __init_gp_trainer(self):
-        self.gp_args = {'Gp': ExactGP,
-                        'Optimizer': FullBatchLBFGS,
-                        'Likelihood': gpytorch.likelihoods.GaussianLikelihood,
-                        'Loss': gpytorch.mlls.ExactMarginalLogLikelihood,
-                        'kernel': gpytorch.kernels.MaternKernel(),
-                        'cov_matrix': gpytorch.distributions.MultivariateNormal}
-
-        self.gp_trainer = GPyTorchTrainer(**self.gp_args)
+        self.gp_trainer = GPyTorchTrainer()
 
     def train(self, indices):
         '''
