@@ -1,3 +1,4 @@
-checkpoints/
-logs/
-data.pt
+*checkpoints/
+*logs/
+*results/
+*data.pt
