@@ -251,7 +251,11 @@ class TPOTWrapper:
         '''
         # Point predictions
         features = self.preprocessor.transform(docs)
-        predictions = np.array(self.tpot.predict(features))
+        try:
+            predictions = np.array(self.tpot.predict(features))
+        # In case we need to make a prediction from a loaded state
+        except AttributeError:
+            predictions = np.array(self.tpot.fitted_pipeline_.predict(features))
 
         # "Uncertainties" will just be the RMSE
         residuals = np.array([prediction - doc['energy']
