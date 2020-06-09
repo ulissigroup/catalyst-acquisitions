@@ -13,6 +13,7 @@ __email__ = 'ktran@andrew.cmu.edu'
 
 import gc
 import random
+import pickle
 from bisect import bisect_right
 import numpy as np
 from scipy.stats import norm
@@ -156,6 +157,36 @@ class TpotHeuristic(AdsorptionDiscovererBase):
                 shuffled_arrays[j][i] = value
 
         return (array.tolist() for array in shuffled_arrays)
+
+    def _save_current_run(self):
+        '''
+        Saves the state of both the discoverer and the TPOT model/fingerprinter
+        '''
+        super()._save_current_run()
+
+        with open(self._fingerprinter_cache, 'wb') as file_handle:
+            pickle.dump(self.model.preprocessor, file_handle)
+        with open(self._pipeline_cache, 'wb') as file_handle:
+            pickle.dump(self.model.tpot.fitted_pipeline_, file_handle)
+
+    def load_last_run(self):
+        '''
+        Loads the state of both the discoverer and the TPOT model/fingerprinter
+        '''
+        super().load_last_run()
+
+        with open(self._fingerprinter_cache, 'rb') as file_handle:
+            self.model.preprocessor = pickle.load(file_handle)
+        with open(self._pipeline_cache, 'rb') as file_handle:
+            self.model.tpot.fitted_pipeline_ = pickle.load(file_handle)
+
+    @property
+    def _fingerprinter_cache(self):
+        return 'fingerprinter.pkl'
+
+    @property
+    def _pipeline_cache(self):
+        return 'tpot_pipeline.pkl'
 
 
 class TPOTWrapper:
