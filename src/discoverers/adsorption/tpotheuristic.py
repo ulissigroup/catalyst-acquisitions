@@ -109,9 +109,6 @@ class TpotHeuristic(AdsorptionDiscovererBase):
         # Now that the samples are sorted, find the next ones and add them to
         # the training set
         features, labels, surfaces = self._pop_next_batch()
-        self.training_features.extend(features)
-        self.training_labels.extend(labels)
-        self.training_surfaces.extend(surfaces)
         return features, labels, surfaces
 
     @staticmethod
