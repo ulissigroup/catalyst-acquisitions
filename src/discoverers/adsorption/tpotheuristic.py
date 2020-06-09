@@ -20,7 +20,6 @@ from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
 from sklearn.decomposition import PCA
 from tpot import TPOTRegressor
-from gaspy.gasdb import get_surface_from_doc
 from gaspy_regress import fingerprinters
 from .adsorption_base import AdsorptionDiscovererBase
 
@@ -59,7 +58,14 @@ class TpotHeuristic(AdsorptionDiscovererBase):
             features, dft_energies, next_surfaces = next_batch
         except ValueError:
             features, dft_energies = next_batch
-            next_surfaces = [get_surface_from_doc(doc) for doc in features]
+            next_surfaces = []
+            for doc in features:
+                mpid = doc['mpid']
+                miller = tuple(int(index) for index in doc['miller'])
+                shift = doc['shift']
+                top = doc['top']
+                surface = (mpid, miller, shift, top)
+                next_surfaces.append(surface)
 
         # Calculate and save the results of this next batch
         try:
@@ -104,7 +110,7 @@ class TpotHeuristic(AdsorptionDiscovererBase):
                                                            weights=probability_densities)
         self.sampling_features = features
         self.sampling_labels = labels
-        self.sampling_surfaces = surfaces
+        self.sampling_surfaces = [tuple(surface) for surface in surfaces]
 
         # Now that the samples are sorted, find the next ones and add them to
         # the training set
