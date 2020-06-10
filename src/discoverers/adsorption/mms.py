@@ -347,7 +347,7 @@ class MultiscaleDiscoverer(AdsorptionDiscovererBase):
             prefix = 'checkpoints'
             cp_folders = os.listdir(prefix)
             cp_folders.sort()
-            nn_checkpoint_file = os.path.join(prefix, cp_folders[-1], 'checkpoint.pt')
+            nn_checkpoint_file = os.path.join(prefix, cp_folders[-2], 'checkpoint.pt')
 
         # Load last model state
         self.model.trainer.load_state(nn_checkpoint_file=nn_checkpoint_file,
