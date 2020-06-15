@@ -25,5 +25,9 @@ RUN git clone https://github.com/ulissigroup/GASpy.git $HOME/GASpy
 RUN git clone https://github.com/ulissigroup/GASpy_regressions.git $HOME/GASpy/GASpy_regressions
 ENV ENV PATH="$HOME/GASpy:$HOME/GASpy/GASpy_regressions:${PATH}"
 
+# Open up the $HOME directory for mounting so that you can save files in the
+# container
+VOLUME $HOME
+
 # Set the default user back to `user` so that we can use Shifter
 USER user
