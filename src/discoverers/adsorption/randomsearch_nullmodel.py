@@ -1,7 +1,8 @@
 '''
-This submodule houses the `RandomSearcher` child class of
+This submodule houses the `NullModelRandomSearcher` child class of
 `AdsorptionDiscovererBase` that hallucinates the performance of random search
-in the context of discovering catalysts by screening their adsorption energies.
+under a null model (which always predicts zeros with fixed uncertainties) in
+the context of discovering catalysts by screening their adsorption energies.
 '''
 
 __author__ = 'Willie Neiswanger'
@@ -20,10 +21,10 @@ with warnings.catch_warnings():
     from tqdm.autonotebook import tqdm
 
 
-class RandomSearcher(AdsorptionDiscovererBase):
+class NullModelRandomSearcher(AdsorptionDiscovererBase):
     '''
-    This discoverer carries out a random search procedure to find adsorption
-    energies.
+    This discoverer carries out a random search procedure, under a null model,
+    to find adsorption energies.
     '''
 
     def __init__(self, *args, **kwargs):
