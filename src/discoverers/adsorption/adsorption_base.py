@@ -278,7 +278,7 @@ class AdsorptionDiscovererBase(ActiveDiscovererBase):
         discovery space. Uses both DFT data (with zero uncertainty) and ML data
         (with predicted uncertainty).
 
-        Arg:
+        Args:
             concatenated_energies   The output of either the
                                     `self._concatenate_predicted_energies` or
                                     `self.concatenate_true_energies` methods.
@@ -423,7 +423,7 @@ class AdsorptionDiscovererBase(ActiveDiscovererBase):
         according to whether or not its bulk value quantile is above or below
         the `self.quantile_cutoff', respectively.
 
-        Arg:
+        Args:
             bulk_values     A dictionary whose keys are the bulk ids and whose
                             values are... the value of the bulk. Yeah this
                             naming convention isn't the best. See
@@ -459,12 +459,12 @@ class AdsorptionDiscovererBase(ActiveDiscovererBase):
         Calculates the precision of our binary classifier (see
         `self._update_reward`).
 
-        Arg:
+        Args:
             current_bulk_classes    The output of `self._classify_bulks` when
                                     you give in the current bulk values
         Returns:
-            recall  The precision of our binary classifier (see
-                    `self._update_reward`)
+            precision  The precision of our binary classifier (see
+                       `self._update_reward`)
         '''
         # Initialize
         final_bulk_classes = self._calculate_final_classes()
@@ -489,7 +489,7 @@ class AdsorptionDiscovererBase(ActiveDiscovererBase):
         Calculates the recall of our binary classifier (see
         `self._update_reward`).
 
-        Arg:
+        Args:
             current_bulk_classes    The output of `self._classify_bulks` when
                                     you give in the current bulk values
         Returns:
@@ -514,6 +514,19 @@ class AdsorptionDiscovererBase(ActiveDiscovererBase):
         recall = true_positives / actual_positives
         return recall
 
+    def _calculate_final_values(self):
+        '''
+        Return all bulk values, in finality (given all sites observed).
+
+        Returns:
+            final_bulk_values   A dictionary whose values are the bulk ids and
+                                whose values are bulk values.
+        '''
+        # Only need to calculate the final bulk values once
+        if not hasattr(self, 'final_bulk_values'):
+            self.final_bulk_values = self.calculate_bulk_values(current=False)
+        return self.final_bulk_values
+
     def _calculate_final_classes(self):
         '''
         Uses the true bulk values to classify each bulk as "good" or "not good"
@@ -528,12 +541,9 @@ class AdsorptionDiscovererBase(ActiveDiscovererBase):
         '''
         # Only need to calculate the final bulk classes once
         if not hasattr(self, 'final_bulk_classes'):
+            final_bulk_values = self._calculate_final_values()
+            self.final_bulk_classes = self._classify_bulks(final_bulk_values)
 
-            # Only need to calculate the final bulk values once
-            if not hasattr(self, 'final_bulk_values'):
-                self.final_bulk_values = self.calculate_bulk_values(current=False)
-
-            self.final_bulk_classes = self._classify_bulks(self.final_bulk_values)
         return self.final_bulk_classes
 
     def _pop_next_batch(self):
@@ -573,7 +583,7 @@ class AdsorptionDiscovererBase(ActiveDiscovererBase):
         Light wrapper for plotting various performance metrics over the course
         of the discovery.
 
-        Arg:
+        Args:
             window              How many points to roll over during each
                                 iteration
             smoother            String indicating how you want to smooth the
@@ -597,6 +607,43 @@ class AdsorptionDiscovererBase(ActiveDiscovererBase):
                                         reward_name='Reward (F1 score)',
                                         accuracy_units=accuracy_units,
                                         uncertainty_units=uncertainty_units)
+
+    def plot_predicted_vs_true_bulk_values(self):
+        '''
+        Plot of predictve bulk values versus true bulk values.
+
+        Args:
+            arg1
+
+        Returns:
+            return1
+        '''
+        # Initialize
+        current_bulk_values = self.calculate_bulk_values(current=True)
+        final_bulk_values = self._calculate_final_values()
+
+        # This is very not elegant way of doing things, but I'm doing it
+        pred_bulk_values, true_bulk_values = [], []
+        for bulk, final_value in final_bulk_values.items():
+            current_value = current_bulk_values[bulk]
+
+            # Append predicted (current) and true (final) bulk values to lists
+            pred_bulk_values.append(current_value)
+            true_bulk_values.append(final_value)
+
+            #pred_bulk_values.append(np.mean(current_value))
+            #true_bulk_values.append(final_value[0])
+
+        pred_bulk_values_mean = [np.mean(arr) for arr in pred_bulk_values]
+        true_bulk_values_single = [arr[0] for arr in true_bulk_values]
+
+        fig = super().plot_predicted_vs_true(pred_bulk_values_mean,
+                                             true_bulk_values_single)
+        fig = super().plot_predicted_vs_true_dist(pred_bulk_values,
+                                                  true_bulk_values)
+
+        return fig
+
 
     def _save_current_run(self):
         '''

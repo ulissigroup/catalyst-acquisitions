@@ -30,6 +30,7 @@ with warnings.catch_warnings():
 # Used to put commas into figures' axes' labels
 FORMATTER = ticker.FuncFormatter(lambda x, p: format(int(x), ','))
 FIG_SIZE = (6.5, 2.5)
+SQUARE_FIG_SIZE = (5., 5.)
 
 
 class ActiveDiscovererBase:
@@ -331,6 +332,59 @@ class ActiveDiscovererBase:
         _ = fig.set_size_inches(*FIG_SIZE)
         _ = ax.get_xaxis().set_major_formatter(FORMATTER)
         return fig
+
+    def plot_predicted_vs_true(self, pred_list, true_list):
+        '''
+        Plot a list of predicted values versus true values.
+        '''
+        fig = plt.figure()
+        ax = sns.scatterplot(true_list, pred_list)
+
+        # Plot 45-degree line
+        x_45 = [np.min(true_list), np.max(true_list)]
+        y_45 = [np.min(pred_list), np.max(pred_list)]
+        ax.plot(x_45, y_45, 'k--')
+
+        # Format
+        _ = ax.set_xlabel('True bulk values')
+        _ = ax.set_ylabel('Predicted bulk values')
+        _ = fig.set_size_inches(*SQUARE_FIG_SIZE)
+        #_ = ax.get_xaxis().set_major_formatter(FORMATTER)
+
+    def plot_predicted_vs_true_dist(self, pred_arr_list, true_arr_list):
+        '''
+        Plot the distributions of predicted values versus true values.
+        '''
+        fig = plt.figure()
+
+        # Sort arrays
+        zip_list = list(zip(pred_arr_list, true_arr_list))
+        #zip_list.sort(key=lambda x: np.mean(x[0]))
+        zip_list.sort(key=lambda x: x[1][0])
+        pred_arr_list, true_arr_list = zip(*zip_list)
+        true_list = [x[0] for x in true_arr_list]
+
+        plot_every = 2
+        idx_list = list(range(0, len(true_list), plot_every))
+
+        true_list_plot = [true_list[i] for i in idx_list]
+
+        ax = sns.scatterplot(idx_list, true_list_plot)
+        for i in idx_list:
+            pred_arr = pred_arr_list[i]
+            true_single = true_list[i]
+            i_arr = i * np.ones(len(pred_arr))
+
+            min_max = (np.min(pred_arr), np.max(pred_arr))
+            ax.plot((i, i), min_max, '-', c='#ff7f0e')
+            ax.plot(i_arr, pred_arr, c='#1f77b4', marker='.', ls='')
+            ax.plot(i, true_single, 'ro')
+
+        # Format
+        _ = ax.set_xlabel('Bulk index')
+        _ = ax.set_ylabel('Bulk value dist')
+        _ = fig.set_size_inches(*(13, 5))
+        #_ = ax.get_xaxis().set_major_formatter(FORMATTER)
 
     @staticmethod
     def _plot_rolling_metric(metric_values, metric_name,
