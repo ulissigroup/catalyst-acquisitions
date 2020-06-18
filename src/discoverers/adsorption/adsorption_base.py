@@ -110,7 +110,7 @@ class AdsorptionDiscovererBase(ActiveDiscovererBase):
         # Used to save intermediate results
         self.cache_keys = {'training_features', 'training_labels', 'training_surfaces',
                            'sampling_features', 'sampling_labels', 'sampling_surfaces',
-                           'residuals', 'uncertainties',
+                           '_predicted_energies', 'residuals', 'uncertainties',
                            'reward_history', 'proxy_reward_history',
                            'batch_size', 'next_batch_number'}
         self.cache_affix = '_discovery_cache.pkl'
@@ -341,6 +341,15 @@ class AdsorptionDiscovererBase(ActiveDiscovererBase):
                                        for surface, sampled_energies in energies_by_surface.items()}
         return low_cov_energies_by_surface
 
+    @property
+    def _predicted_energies(self):
+        ''' Cached results of the `self._predicted_energies` method. '''
+        try:
+            return self._predicted_energies
+        except AttributeError:
+            self._predicted_energies = self._concatenate_predicted_energies()
+            return self._predicted_energies
+
     def _concatenate_predicted_energies(self):
         '''
         This method will return the adsorption energies and corresponding
@@ -376,12 +385,15 @@ class AdsorptionDiscovererBase(ActiveDiscovererBase):
             energies = sampled_energies + np.array(predicted_energies).tolist()
             stdevs = sampled_stdevs + np.array(predicted_stdevs).tolist()
             surfaces = sampled_surfaces + unsampled_surfaces
-            return energies, stdevs, surfaces
 
         # If there's nothing left to concatenate, then just return the already
         # sampled information
         except (np.core._exceptions.AxisError, RuntimeError):
-            return sampled_energies, sampled_stdevs, sampled_surfaces
+            energies, stdevs, surfaces = sampled_energies, sampled_stdevs, sampled_surfaces
+
+        # Cache the energies
+        self._predicted_energies = energies, stdevs, surfaces
+        return energies, stdevs, surfaces
 
     def _concatenate_true_energies(self):
         '''
@@ -612,11 +624,8 @@ class AdsorptionDiscovererBase(ActiveDiscovererBase):
         '''
         Plot of predictve bulk values versus true bulk values.
 
-        Args:
-            arg1
-
         Returns:
-            return1
+            fig     The matplotlib figure object for the learning curve
         '''
         # Initialize
         current_bulk_values = self.calculate_bulk_values(current=True)
@@ -641,9 +650,7 @@ class AdsorptionDiscovererBase(ActiveDiscovererBase):
                                              true_bulk_values_single)
         fig = super().plot_predicted_vs_true_dist(pred_bulk_values,
                                                   true_bulk_values)
-
         return fig
-
 
     def _save_current_run(self):
         '''
