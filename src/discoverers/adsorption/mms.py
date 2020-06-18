@@ -13,6 +13,7 @@ import os
 from collections import defaultdict
 import numpy as np
 from scipy.stats import norm
+import torch
 from torch_geometric.data import DataLoader
 
 from ocpmodels.trainers.simple_trainer import SimpleTrainer
@@ -364,15 +365,46 @@ class CFGPWrapper:
         '''
         Instantiate the settings for our CFGP
         '''
-        self.__init_conv_trainer(db_dir)
+        self.db_dir = db_dir
+
+    def train(self, indices):
+        '''
+        Trains both the network and GP in series
+
+        Args:
+            indices     A sequences of integers that map to the row numbers
+                        within the database that you want to train on
+        '''
+        self.__init_cfgp_trainer(indices)
+
+        # Substract 1 from all the indices because they're 1-indexed for the
+        # ASE database, but here we'll be using them to grab things from the
+        # 0-indexed dataset object.
+        train_indices = [index - 1 for index in indices]
+
+        # Update the data loader
+        train_loader = DataLoader(
+            self.dataset[train_indices],
+            batch_size=self.cnn_args['optimizer']['batch_size'],
+            shuffle=True,
+        )
+        self.trainer.train_loader = train_loader
+        self.trainer.conv_trainer.train_loader = train_loader
+
+        # Train on the updated data
+        self.trainer.train(n_training_iter=100)
+
+        # Clear up some GPU memory
+        torch.cuda.empty_cache()
+
+    def __init_cfgp_trainer(self, indices):
+        self.__init_conv_trainer(self.db_dir, indices)
         self.__init_gp_trainer()
         self.trainer = CfgpTrainer(self.cnn_trainer, self.gp_trainer)
 
-    def __init_conv_trainer(self, db_dir):
+    def __init_conv_trainer(self, db_dir, indices):
         task = {'dataset': 'gasdb',
-                'description': ('Binding energy regression on a dataset of DFT '
-                                'results for CO, H, N, O, and OH adsorption on '
-                                'various slabs.'),
+                'description': ('Regression of DFT calculated binding energes'),
                 'labels': ['binding energy'],
                 'metric': 'mae',
                 'type': 'regression'}
@@ -382,7 +414,7 @@ class CFGPWrapper:
                  'num_fc_layers': 4,
                  'num_graph_conv_layers': 6}
         dataset = {'src': db_dir,
-                   'train_size': 1,  # Not actually used
+                   'train_size': len(indices),
                    'val_size': 0,
                    'test_size': 0}
         optimizer = {'batch_size': 64,
@@ -403,31 +435,6 @@ class CFGPWrapper:
 
     def __init_gp_trainer(self):
         self.gp_trainer = GPyTorchTrainer()
-
-    def train(self, indices):
-        '''
-        Trains both the network and GP in series
-
-        Args:
-            indices     A sequences of integers that map to the row numbers
-                        within the database that you want to train on
-        '''
-        # Substract 1 from all the indices because they're 1-indexed for the
-        # ASE database, but here we'll be using them to grab things from the
-        # 0-indexed dataset object.
-        train_indices = [index - 1 for index in indices]
-
-        # Update the data loader
-        train_loader = DataLoader(
-            self.dataset[train_indices],
-            batch_size=self.cnn_args['optimizer']['batch_size'],
-            shuffle=True,
-        )
-        self.trainer.train_loader = train_loader
-        self.trainer.conv_trainer.train_loader = train_loader
-
-        # Train on the updated data
-        self.trainer.train(n_training_iter=100)
 
     def predict(self, indices):
         '''
