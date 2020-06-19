@@ -341,15 +341,6 @@ class AdsorptionDiscovererBase(ActiveDiscovererBase):
                                        for surface, sampled_energies in energies_by_surface.items()}
         return low_cov_energies_by_surface
 
-    @property
-    def _predicted_energies(self):
-        ''' Cached results of the `self._predicted_energies` method. '''
-        try:
-            return self._predicted_energies
-        except AttributeError:
-            self._predicted_energies = self._concatenate_predicted_energies()
-            return self._predicted_energies
-
     def _concatenate_predicted_energies(self):
         '''
         This method will return the adsorption energies and corresponding
@@ -658,6 +649,11 @@ class AdsorptionDiscovererBase(ActiveDiscovererBase):
         hallucination never finished. Should be called at the end of the
         `self._train` method.
         '''
+        # Initialize predictions if we haven't made them yet
+        if not hasattr(self, '_predicted_energies'):
+            _ = self._concatenate_predicted_energies()
+
+        # Save all the attributes-to-be-cached
         cache_name = (self.cache_location +
                       '%.3i%s' % (self.next_batch_number, self.cache_affix))
         cache = {key: getattr(self, key) for key in self.cache_keys}

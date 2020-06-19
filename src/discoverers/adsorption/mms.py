@@ -362,10 +362,9 @@ class CFGPWrapper:
     adsorption energies.
     '''
     def __init__(self, db_dir):
-        '''
-        Instantiate the settings for our CFGP
-        '''
+        ''' Instantiate the settings for our CFGP '''
         self.db_dir = db_dir
+        self.dataset = Gasdb({'src': self.db_dir})
 
     def train(self, indices):
         '''
