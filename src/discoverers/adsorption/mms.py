@@ -333,6 +333,11 @@ class MultiscaleDiscoverer(AdsorptionDiscovererBase):
         dft_energy = row['data']['adsorption_energy']
         return db_index, dft_energy, surface
 
+    def _save_current_run(self):
+        ''' Save the state of the trainer along with the discoverer '''
+        super()._save_current_run()
+        self.model.trainer.save_state()
+
     def load_last_run(self, nn_checkpoint_file=None,
                       gp_checkpoint_file='gp_state.pth',
                       normalizer_checkpoint_file='normalizer.pth'):
@@ -351,6 +356,7 @@ class MultiscaleDiscoverer(AdsorptionDiscovererBase):
             nn_checkpoint_file = os.path.join(prefix, cp_folders[-2], 'checkpoint.pt')
 
         # Load last model state
+        self.model._init_cfgp_trainer([0])
         self.model.trainer.load_state(nn_checkpoint_file=nn_checkpoint_file,
                                       gp_checkpoint_file=gp_checkpoint_file,
                                       normalizer_checkpoint_file=normalizer_checkpoint_file)
@@ -374,7 +380,7 @@ class CFGPWrapper:
             indices     A sequences of integers that map to the row numbers
                         within the database that you want to train on
         '''
-        self.__init_cfgp_trainer(indices)
+        self._init_cfgp_trainer(indices)
 
         # Substract 1 from all the indices because they're 1-indexed for the
         # ASE database, but here we'll be using them to grab things from the
@@ -396,12 +402,12 @@ class CFGPWrapper:
         # Clear up some GPU memory
         torch.cuda.empty_cache()
 
-    def __init_cfgp_trainer(self, indices):
-        self.__init_conv_trainer(self.db_dir, indices)
-        self.__init_gp_trainer()
+    def _init_cfgp_trainer(self, indices):
+        self._init_conv_trainer(self.db_dir, indices)
+        self._init_gp_trainer()
         self.trainer = CfgpTrainer(self.cnn_trainer, self.gp_trainer)
 
-    def __init_conv_trainer(self, db_dir, indices):
+    def _init_conv_trainer(self, db_dir, indices):
         task = {'dataset': 'gasdb',
                 'description': ('Regression of DFT calculated binding energes'),
                 'labels': ['binding energy'],
@@ -432,7 +438,7 @@ class CFGPWrapper:
         self.cnn_trainer = SimpleTrainer(**self.cnn_args)
         self.dataset = Gasdb(self.cnn_args['dataset'])
 
-    def __init_gp_trainer(self):
+    def _init_gp_trainer(self):
         self.gp_trainer = GPyTorchTrainer()
 
     def predict(self, indices):
