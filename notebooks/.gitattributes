@@ -1,0 +1,10 @@
+MMS/slurm-765949.out filter=lfs diff=lfs merge=lfs -text
+TPOT_heuristic/slurm-31901016.out filter=lfs diff=lfs merge=lfs -text
+random_cfgp/slurm-767329.out filter=lfs diff=lfs merge=lfs -text
+random_cfgp/slurm-768210.out filter=lfs diff=lfs merge=lfs -text
+random_cfgp/slurm-768859.out filter=lfs diff=lfs merge=lfs -text
+MMS/slurm-767328.out filter=lfs diff=lfs merge=lfs -text
+MMS/slurm-768209.out filter=lfs diff=lfs merge=lfs -text
+MMS/slurm-768858.out filter=lfs diff=lfs merge=lfs -text
+TPOT_heuristic/slurm-31972192.out filter=lfs diff=lfs merge=lfs -text
+random_cfgp/slurm-765946.out filter=lfs diff=lfs merge=lfs -text

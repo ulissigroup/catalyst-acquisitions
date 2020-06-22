@@ -46,10 +46,10 @@ discoverer = RandomSearcherCFGP(db_dir=db_dir,
                                 sampling_features=sampling_features,
                                 sampling_labels=sampling_labels,
                                 sampling_surfaces=sampling_surfaces,
-                                init_train=True  # Set to `False` only for warm starts
+                                init_train=False  # Set to `False` only for warm starts
                                 )
 
 # Or load the last run
-#discoverer.load_last_run()
+discoverer.load_last_run()
 
 discoverer.simulate_discovery()

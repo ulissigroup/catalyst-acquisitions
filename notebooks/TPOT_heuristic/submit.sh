@@ -3,11 +3,11 @@
 #SBATCH --nodes=1
 #SBATCH --constraint=knl
 #SBATCH --exclusive
-#SBATCH --qos=premium
-#SBATCH --job-name=hallucinate_tpot
+#SBATCH --qos=regular
+#SBATCH --job-name=tpot_hallucination
 #SBATCH --image=ulissigroup/catalyst-acquisitions:dev
 #SBATCH --mail-user=ktran@andrew.cmu.edu
 #SBATCH --mail-type=ALL
-#SBATCH --time=12:00:00
+#SBATCH --time=48:00:00
 
-shifter python TPOT_heuristic.py
+shifter python hallucinate.py

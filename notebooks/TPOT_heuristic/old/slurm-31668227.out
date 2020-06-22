@@ -1,0 +1,111 @@
+Hallucinating discovery...:   0%|          | 0/10 [00:00<?, ?it/s]
+Optimization Progress:   0%|          | 0/96 [00:00<?, ?pipeline/s][A
+Optimization Progress:   1%|          | 1/96 [05:40<8:58:44, 340.25s/pipeline][A
+Optimization Progress:  39%|███▊      | 37/96 [06:00<3:54:22, 238.34s/pipeline][A
+Optimization Progress:  41%|████      | 39/96 [11:55<3:29:07, 220.14s/pipeline][A
+Generation 1 - Current best internal CV score: -0.07691177981094584
+Optimization Progress:  78%|███████▊  | 75/96 [11:58<53:56, 154.12s/pipeline]  [A
+Optimization Progress:  79%|███████▉  | 76/96 [12:15<37:36, 112.85s/pipeline][A
+Optimization Progress:  80%|████████  | 77/96 [18:25<1:00:13, 190.18s/pipeline][A
+Generation 2 - Current best internal CV score: -0.07682033087738657
+                                                                               [AHallucinating discovery...:  10%|█         | 1/10 [31:53<4:46:58, 1913.15s/it]
+Best pipeline: KNeighborsRegressor(RidgeCV(input_matrix), n_neighbors=10, p=2, weights=distance)
+
+Optimization Progress:   0%|          | 0/96 [00:00<?, ?pipeline/s][A
+Optimization Progress:  33%|███▎      | 32/96 [00:02<00:04, 14.23pipeline/s][A
+Optimization Progress:  34%|███▍      | 33/96 [06:15<1:57:29, 111.90s/pipeline][A
+Generation 1 - Current best internal CV score: -0.07653080856666129
+Optimization Progress:  68%|██████▊   | 65/96 [06:34<40:33, 78.51s/pipeline]   [A
+Optimization Progress:  69%|██████▉   | 66/96 [06:44<29:05, 58.20s/pipeline][A
+Optimization Progress:  72%|███████▏  | 69/96 [12:29<33:50, 75.19s/pipeline][A
+Generation 2 - Current best internal CV score: -0.07653080856666129
+                                                                            [AHallucinating discovery...:  20%|██        | 2/10 [58:32<4:02:31, 1818.95s/it]
+Best pipeline: KNeighborsRegressor(ExtraTreesRegressor(RidgeCV(input_matrix), bootstrap=True, max_features=1.0, min_samples_leaf=7, min_samples_split=11, n_estimators=100), n_neighbors=10, p=2, weights=distance)
+
+Optimization Progress:   0%|          | 0/96 [00:00<?, ?pipeline/s][A
+Optimization Progress:  33%|███▎      | 32/96 [00:03<00:06,  9.80pipeline/s][A
+Optimization Progress:  34%|███▍      | 33/96 [06:15<1:57:10, 111.59s/pipeline][A
+Generation 1 - Current best internal CV score: -0.07653080856666129
+Optimization Progress:  70%|██████▉   | 67/96 [06:17<37:45, 78.14s/pipeline]   [A
+Optimization Progress:  71%|███████   | 68/96 [06:26<26:51, 57.54s/pipeline][A
+Optimization Progress:  72%|███████▏  | 69/96 [12:24<1:06:20, 147.41s/pipeline][A
+Generation 2 - Current best internal CV score: -0.07622709345070469
+                                                                               [AHallucinating discovery...:  30%|███       | 3/10 [1:25:45<3:25:42, 1763.22s/it]
+Best pipeline: KNeighborsRegressor(ExtraTreesRegressor(XGBRegressor(ExtraTreesRegressor(input_matrix, bootstrap=True, max_features=0.8500000000000001, min_samples_leaf=4, min_samples_split=5, n_estimators=100), learning_rate=0.001, max_depth=9, min_child_weight=8, n_estimators=100, nthread=1, objective=reg:squarederror, subsample=0.3), bootstrap=True, max_features=1.0, min_samples_leaf=7, min_samples_split=11, n_estimators=100), n_neighbors=10, p=2, weights=distance)
+
+Optimization Progress:   0%|          | 0/96 [00:00<?, ?pipeline/s][A
+Optimization Progress:  33%|███▎      | 32/96 [00:02<00:05, 12.13pipeline/s][A
+Optimization Progress:  35%|███▌      | 34/96 [00:10<01:17,  1.25s/pipeline][A
+Optimization Progress:  38%|███▊      | 36/96 [06:10<54:51, 54.86s/pipeline][A
+Generation 1 - Current best internal CV score: -0.07489355262661557
+Optimization Progress:  70%|██████▉   | 67/96 [06:16<18:35, 38.46s/pipeline][A
+Optimization Progress:  72%|███████▏  | 69/96 [06:27<12:54, 28.70s/pipeline][A
+Optimization Progress:  73%|███████▎  | 70/96 [12:28<55:38, 128.39s/pipeline][A
+Generation 2 - Current best internal CV score: -0.07489355262661557
+                                                                             [AHallucinating discovery...:  40%|████      | 4/10 [1:53:35<2:53:32, 1735.35s/it]
+Best pipeline: KNeighborsRegressor(ExtraTreesRegressor(RidgeCV(ExtraTreesRegressor(Normalizer(input_matrix, norm=max), bootstrap=True, max_features=0.8500000000000001, min_samples_leaf=4, min_samples_split=5, n_estimators=100)), bootstrap=True, max_features=1.0, min_samples_leaf=7, min_samples_split=11, n_estimators=100), n_neighbors=10, p=2, weights=distance)
+
+Optimization Progress:   0%|          | 0/96 [00:00<?, ?pipeline/s][A
+Optimization Progress:  33%|███▎      | 32/96 [00:14<00:29,  2.14pipeline/s][A
+Optimization Progress:  34%|███▍      | 33/96 [06:40<2:01:39, 115.86s/pipeline][A
+Generation 1 - Current best internal CV score: -0.07390380766623894
+Optimization Progress:  67%|██████▋   | 64/96 [07:08<43:24, 81.38s/pipeline]   [A
+Optimization Progress:  68%|██████▊   | 65/96 [13:19<1:26:57, 168.31s/pipeline][A
+Generation 2 - Current best internal CV score: -0.07390380766623894
+                                                                               [AHallucinating discovery...:  50%|█████     | 5/10 [2:31:11<2:37:37, 1891.59s/it]
+Best pipeline: KNeighborsRegressor(ExtraTreesRegressor(ExtraTreesRegressor(Normalizer(input_matrix, norm=max), bootstrap=True, max_features=0.8, min_samples_leaf=4, min_samples_split=5, n_estimators=100), bootstrap=True, max_features=1.0, min_samples_leaf=7, min_samples_split=11, n_estimators=100), n_neighbors=10, p=2, weights=distance)
+
+Optimization Progress:   0%|          | 0/96 [00:00<?, ?pipeline/s][A
+Optimization Progress:  33%|███▎      | 32/96 [00:25<00:50,  1.27pipeline/s][A
+Optimization Progress:  34%|███▍      | 33/96 [07:15<2:09:53, 123.70s/pipeline][A
+Generation 1 - Current best internal CV score: -0.07309517475753004
+Optimization Progress:  69%|██████▉   | 66/96 [07:28<43:21, 86.71s/pipeline]   [A
+Optimization Progress:  71%|███████   | 68/96 [07:42<29:17, 62.78s/pipeline][A
+Optimization Progress:  73%|███████▎  | 70/96 [14:39<46:08, 106.48s/pipeline][A
+Generation 2 - Current best internal CV score: -0.07309517475753004
+                                                                             [AHallucinating discovery...:  60%|██████    | 6/10 [3:06:12<2:10:16, 1954.20s/it]
+Best pipeline: KNeighborsRegressor(ExtraTreesRegressor(ExtraTreesRegressor(Normalizer(input_matrix, norm=max), bootstrap=True, max_features=0.8, min_samples_leaf=4, min_samples_split=11, n_estimators=100), bootstrap=True, max_features=1.0, min_samples_leaf=7, min_samples_split=11, n_estimators=100), n_neighbors=10, p=2, weights=distance)
+
+Optimization Progress:   0%|          | 0/96 [00:00<?, ?pipeline/s][A
+Optimization Progress:  33%|███▎      | 32/96 [00:21<00:43,  1.48pipeline/s][A
+Optimization Progress:  35%|███▌      | 34/96 [07:54<1:10:40, 68.39s/pipeline][A
+Generation 1 - Current best internal CV score: -0.0729760329497291
+Optimization Progress:  69%|██████▉   | 66/96 [07:57<23:57, 47.90s/pipeline]  [A
+Optimization Progress:  72%|███████▏  | 69/96 [08:25<16:21, 36.37s/pipeline][A
+Optimization Progress:  73%|███████▎  | 70/96 [14:43<1:00:13, 138.98s/pipeline][A
+Generation 2 - Current best internal CV score: -0.0729760329497291
+                                                                               [AHallucinating discovery...:  70%|███████   | 7/10 [3:43:21<1:41:50, 2036.86s/it]
+Best pipeline: KNeighborsRegressor(ExtraTreesRegressor(ExtraTreesRegressor(ExtraTreesRegressor(Normalizer(input_matrix, norm=max), bootstrap=True, max_features=0.8, min_samples_leaf=4, min_samples_split=5, n_estimators=100), bootstrap=True, max_features=0.55, min_samples_leaf=17, min_samples_split=14, n_estimators=100), bootstrap=True, max_features=1.0, min_samples_leaf=7, min_samples_split=11, n_estimators=100), n_neighbors=10, p=2, weights=distance)
+
+Optimization Progress:   0%|          | 0/96 [00:00<?, ?pipeline/s][A
+Optimization Progress:  33%|███▎      | 32/96 [00:31<01:02,  1.03pipeline/s][A
+Optimization Progress:  36%|███▋      | 35/96 [08:03<46:38, 45.88s/pipeline][A
+Generation 1 - Current best internal CV score: -0.0729760329497291
+Optimization Progress:  70%|██████▉   | 67/96 [08:18<15:35, 32.26s/pipeline][A
+Optimization Progress:  71%|███████   | 68/96 [08:29<12:03, 25.83s/pipeline][A
+Optimization Progress:  72%|███████▏  | 69/96 [15:48<1:07:29, 149.98s/pipeline][A
+Generation 2 - Current best internal CV score: -0.0729760329497291
+                                                                               [AHallucinating discovery...:  80%|████████  | 8/10 [4:21:58<1:10:41, 2120.87s/it]
+Best pipeline: KNeighborsRegressor(ExtraTreesRegressor(ExtraTreesRegressor(ExtraTreesRegressor(Normalizer(input_matrix, norm=max), bootstrap=True, max_features=0.8, min_samples_leaf=4, min_samples_split=5, n_estimators=100), bootstrap=True, max_features=0.55, min_samples_leaf=17, min_samples_split=14, n_estimators=100), bootstrap=True, max_features=1.0, min_samples_leaf=7, min_samples_split=11, n_estimators=100), n_neighbors=10, p=2, weights=distance)
+
+Optimization Progress:   0%|          | 0/96 [00:00<?, ?pipeline/s][A
+Optimization Progress:  33%|███▎      | 32/96 [00:31<01:02,  1.02pipeline/s][A
+Optimization Progress:  36%|███▋      | 35/96 [07:49<45:12, 44.47s/pipeline][A
+Generation 1 - Current best internal CV score: -0.07271145404745269
+Optimization Progress:  70%|██████▉   | 67/96 [08:23<15:11, 31.45s/pipeline][A
+Optimization Progress:  71%|███████   | 68/96 [15:44<1:12:04, 154.44s/pipeline][A
+Generation 2 - Current best internal CV score: -0.07229918208647475
+                                                                               [AHallucinating discovery...:  90%|█████████ | 9/10 [5:06:14<38:01, 2281.41s/it]  
+Best pipeline: KNeighborsRegressor(ExtraTreesRegressor(RidgeCV(ExtraTreesRegressor(Normalizer(input_matrix, norm=max), bootstrap=True, max_features=0.8500000000000001, min_samples_leaf=4, min_samples_split=5, n_estimators=100)), bootstrap=True, max_features=1.0, min_samples_leaf=7, min_samples_split=2, n_estimators=100), n_neighbors=6, p=2, weights=distance)
+
+Optimization Progress:   0%|          | 0/96 [00:00<?, ?pipeline/s][A
+Optimization Progress:  33%|███▎      | 32/96 [00:25<00:51,  1.23pipeline/s][A
+Optimization Progress:  34%|███▍      | 33/96 [06:42<1:59:16, 113.60s/pipeline][A
+Generation 1 - Current best internal CV score: -0.0715181903945363
+Optimization Progress:  67%|██████▋   | 64/96 [06:53<42:28, 79.63s/pipeline]   [A
+Optimization Progress:  68%|██████▊   | 65/96 [07:18<32:35, 63.09s/pipeline][A
+Optimization Progress:  71%|███████   | 68/96 [12:35<35:25, 75.91s/pipeline][A
+Generation 2 - Current best internal CV score: -0.0715181903945363
+                                                                            [AHallucinating discovery...: 100%|██████████| 10/10 [5:42:43<00:00, 2253.69s/it]Hallucinating discovery...: 100%|██████████| 10/10 [5:42:43<00:00, 2056.39s/it]
+
+Best pipeline: KNeighborsRegressor(ExtraTreesRegressor(ExtraTreesRegressor(Normalizer(input_matrix, norm=l2), bootstrap=True, max_features=0.8, min_samples_leaf=4, min_samples_split=5, n_estimators=100), bootstrap=True, max_features=1.0, min_samples_leaf=4, min_samples_split=11, n_estimators=100), n_neighbors=10, p=2, weights=distance)

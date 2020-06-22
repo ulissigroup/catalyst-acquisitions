@@ -2,7 +2,7 @@
 
 #SBATCH --nodes=1
 #SBATCH --constraint=gpu
-#SBATCH --gres=gpu:1
+#SBATCH --gres=gpu:2
 #SBATCH --account=m1759
 #SBATCH --qos=special
 #SBATCH --job-name=rs_cfgp
