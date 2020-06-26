@@ -102,8 +102,9 @@ class ActiveDiscovererBase:
 
     def _hallucinate_next_batch(self):
         '''
-        Choose the next batch of data to get, add them to the `samples`
-        attribute, and then re-train the surrogate model with the new samples.
+        Choose the next batch of data to add to the training set from the
+        sampling set, re-train the surrogate model with the new training set,
+        and update both the reward and proxy reward.
         '''
         # Perform one iteration of active discovery
         next_batch = self._choose_next_batch()
@@ -137,9 +138,10 @@ class ActiveDiscovererBase:
                them onto the `residuals` attribute
             3. calculate the current model's uncertainty estimates and extend
                them onto the `uncertainties` attributes
-            4. use the training batch to [re]train the surrogate model
-            5. extend the `self.training_features` attribute with the batch
-               that it is passed.
+            4. extend the `self.training_` attributes with the batch that it is
+               passed.
+            5. [re]train the surrogate model given the updated training
+               attributes
         '''
         raise NotImplementedError
 
@@ -214,10 +216,9 @@ class ActiveDiscovererBase:
     def _pop_next_batch(self):
         '''
         Optional helper function that you can use to choose the next batch from
-        `self.sampling_features`, remove it from the attribute, place the new
-        batch onto the `self.training_features` attribute, increment the
-        `self.next_batch_number`. Then do it all again for the
-        `self.sampling_labels` and `self.training_labels` attributes.
+        `self.sampling_features` and `self.sampling_labels`, remove the batch
+        from these attributes, increment next_batch_number by 1, and then return
+        the batch from `self.sampling_features` and `self.sampling_labels`.
 
         This method will only work if you have already sorted the
         `self.sampling_features` and `self.sampling_labels` such that the

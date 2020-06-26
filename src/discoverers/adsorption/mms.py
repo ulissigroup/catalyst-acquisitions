@@ -61,7 +61,7 @@ class MultiscaleDiscoverer(AdsorptionDiscovererBase):
         Calculate the residuals of the current training batch, then retrain on
         everything
 
-        Arg:
+        Args:
             next_batch  The output of this class's `_choose_next_batch` method
         '''
         indices, dft_energies = next_batch
@@ -165,7 +165,7 @@ class MultiscaleDiscoverer(AdsorptionDiscovererBase):
         classification. See
         http://www.cs.cmu.edu/~schneide/bryanba_nips2005.pdf for more details.
 
-        Arg:
+        Args:
             bulk_values     The output of the `self.calculate_bulk_values`
                             method.
         Returns:
@@ -206,7 +206,7 @@ class MultiscaleDiscoverer(AdsorptionDiscovererBase):
         sampling. For a better explanation of uncertainty sampling, see
         http://burrsettles.com/pub/settles.activelearning.pdf
 
-        Arg:
+        Args:
             surface_values  The output of the `self.calculate_surface_values`
                             method
         Returns:
@@ -256,7 +256,7 @@ class MultiscaleDiscoverer(AdsorptionDiscovererBase):
         phi(Z) = probability distribution function of normal distribution at Z
         Z = test statistic at x
 
-        Arg:
+        Args:
             ordered_bulks       The output of the `self._prioritize_bulks` method.
             ordered_surfaces    The output of the `self._prioritize_surfaces` method.
             site_energies       The output of the
@@ -445,7 +445,7 @@ class CFGPWrapper:
         '''
         Use the whole pipeline to make adsorption energy predictions
 
-        Arg:
+        Args:
             indices     A sequences of integers that map to the row numbers
                         within the database that you want to train on
         Returns:
