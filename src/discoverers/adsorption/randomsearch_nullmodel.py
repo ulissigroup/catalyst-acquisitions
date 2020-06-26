@@ -5,9 +5,6 @@ under a null model (which always predicts zeros with fixed uncertainties) in
 the context of discovering catalysts by screening their adsorption energies.
 '''
 
-__author__ = 'Willie Neiswanger'
-__email__ = 'willie@cs.cmu.edu'
-
 
 import warnings
 import random
@@ -21,7 +18,7 @@ with warnings.catch_warnings():
     from tqdm.autonotebook import tqdm
 
 
-class NullModelRandomSearcher(AdsorptionDiscovererBase):
+class RandomSearcherNullModel(AdsorptionDiscovererBase):
     '''
     This discoverer carries out a random search procedure, under a null model,
     to find adsorption energies.
@@ -37,25 +34,6 @@ class NullModelRandomSearcher(AdsorptionDiscovererBase):
     @property
     def cache_location(self):
         return './rs_caches/'
-
-    def _train(self, next_batch):
-        '''
-        While random search does not technically use a model, we must still
-        implement this method.
-        '''
-
-        features, dft_energies, next_surfaces = next_batch
-
-        # Get predictions and uncertainties from NullModel
-        predictions, uncertainties = self.model.predict(features)
-        residuals = predictions - dft_energies
-        self.uncertainties.extend(uncertainties)
-        self.residuals.extend(residuals.tolist())
-
-        # Extend training set attributes to include this next batch
-        self.training_features.extend(features)
-        self.training_labels.extend(dft_energies)
-        self.training_surfaces.extend(next_surfaces)
 
     def _choose_next_batch(self):
         '''
@@ -73,7 +51,42 @@ class NullModelRandomSearcher(AdsorptionDiscovererBase):
         random.shuffle(sampling_all)
         self.sampling_features, self.sampling_labels = zip(*sampling_all)
 
-        ### TODO: shuffle surfaces too?
+    def _train(self, next_batch):
+        '''
+        This function trains the null model (which involves no computation),
+        where the null model always predicts a constant value and uncertainty.
+        '''
+
+        features, dft_energies, next_surfaces = next_batch
+
+        # Get predictions and uncertainties from NullModel for this next batch
+        try:
+            predictions, uncertainties = self.model.predict(features)
+            residuals = predictions - dft_energies
+            self.residuals.extend(residuals.tolist())
+            self.uncertainties.extend(uncertainties)
+        # If prediction doesn't work, then we probably haven't trained the
+        # first batch. And if haven't done this, then there's no need to save
+        # the residuals and uncertainty estimates.
+        except AttributeError:
+            pass
+
+        # Retrain
+        self.training_features.extend(features)
+        self.training_labels.extend(dft_energies)
+        self.training_surfaces.extend(next_surfaces)
+
+        self.model.train()
+        self._save_current_run()
+
+    def _save_current_run(self):
+        ''' Save the state of the discoverer '''
+        super()._save_current_run()
+
+    def load_last_run(self):
+        ''' Load the last state of the hallucination '''
+        # Load last hallucination state
+        super().load_last_run()
 
 
 class NullModel:
@@ -82,12 +95,12 @@ class NullModel:
     predicts 0 for mean and 1 for uncertainty.
     '''
 
-    def train(self, docs, energies):
+    def train(self):
         '''Do nothing.'''
         pass
 
-    def predict(self, docs):
+    def predict(self, features):
         '''For each doc, predict 0 for mean and 1 for uncertainty.'''
-        predictions = np.zeros(len(docs))
-        uncertainties = np.ones(len(docs))
+        predictions = np.zeros(len(features))
+        uncertainties = np.ones(len(features))
         return predictions, uncertainties
