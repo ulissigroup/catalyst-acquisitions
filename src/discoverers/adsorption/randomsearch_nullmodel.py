@@ -5,17 +5,9 @@ under a null model (which always predicts zeros with fixed uncertainties) in
 the context of discovering catalysts by screening their adsorption energies.
 '''
 
-
-import warnings
 import random
 import numpy as np
 from .adsorption_base import AdsorptionDiscovererBase
-
-# The tqdm autonotebook is still experimental, and it warns us. We don't mind,
-# and would rather not hear about the warning everytime.
-with warnings.catch_warnings():
-    warnings.simplefilter('ignore')
-    from tqdm.autonotebook import tqdm
 
 
 class RandomSearcherNullModel(AdsorptionDiscovererBase):
@@ -33,7 +25,7 @@ class RandomSearcherNullModel(AdsorptionDiscovererBase):
 
     @property
     def cache_location(self):
-        return './rs_caches/'
+        return './rs_null_caches/'
 
     def _choose_next_batch(self):
         ''' Choose the next batch uniformly at random '''

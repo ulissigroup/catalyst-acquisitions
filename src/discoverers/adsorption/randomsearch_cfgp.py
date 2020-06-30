@@ -22,7 +22,7 @@ class RandomSearcherCFGP(MultiscaleDiscoverer):
 
     @property
     def cache_location(self):
-        return './rs_caches/'
+        return './rs_cfgp_caches/'
 
     def _choose_next_batch(self):
         ''' Choose the next batch uniformly at random. '''
