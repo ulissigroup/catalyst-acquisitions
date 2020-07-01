@@ -33,7 +33,7 @@ FIG_SIZE = (6.5, 2.5)
 SQUARE_FIG_SIZE = (5., 5.)
 
 
-class ActiveDiscovererBase:
+class BaseActiveDiscoverer:
     '''
     This is a parent class for simulating active discovery routines. The
     child classes are meant to be used to judge the efficacy of training

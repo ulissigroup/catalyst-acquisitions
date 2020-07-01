@@ -3,8 +3,8 @@ This submodule is meant to establish performance benchmarks for catalyst
 discovery via screening of adsorption energies.
 '''
 
-__author__ = 'Kevin Tran'
-__email__ = 'ktran@andrew.cmu.edu'
+__authors__ = ['Kevin Tran', 'Willie Neiswanger']
+__emails__ = ['ktran@andrew.cmu.edu', 'willie@cs.cmu.edu']
 
 
 import os
@@ -14,16 +14,16 @@ import pickle
 from pathlib import Path
 import numpy as np
 from scipy.stats import norm
-from ..base import ActiveDiscovererBase
+from ..base import BaseActiveDiscoverer
 
 
-class AdsorptionDiscovererBase(ActiveDiscovererBase):
+class BaseAdsorptionDiscoverer(BaseActiveDiscoverer):
     '''
     Here we extend the `ActiveDiscovererBase` class while making the following
     assumptions:  1) we are trying to optimize the adsorption energy and 2) our
     inputs are a list of dictionaries with the 'energy' and 'std' keys.
     '''
-    def __init__(self, quantile_cutoff, value_calculator,
+    def __init__(self, model, quantile_cutoff, value_calculator,
                  training_features, training_labels, training_surfaces,
                  sampling_features, sampling_labels, sampling_surfaces,
                  n_samples=20, batch_size=200, init_train=True):
@@ -32,6 +32,7 @@ class AdsorptionDiscovererBase(ActiveDiscovererBase):
         initialize all of the other attributes.
 
         Args:
+            model               Instantiated model from the `.models` submodule
             quantile_cutoff     A float within (0, 1). When we search for bulk
                                 materials, we want to classify them as "good"
                                 or "not good". "Good" is defined as whether a
@@ -85,6 +86,7 @@ class AdsorptionDiscovererBase(ActiveDiscovererBase):
                              for mpid, miller, shift, top in training_surfaces]
 
         # Additional attributes for adsorption energies
+        self.model = model
         self.value_calculator = value_calculator
         self.sampling_surfaces = sampling_surfaces
         self.n_samples = n_samples
@@ -113,6 +115,52 @@ class AdsorptionDiscovererBase(ActiveDiscovererBase):
         super().__init__(training_features, training_labels,
                          sampling_features, sampling_labels,
                          batch_size=batch_size, init_train=init_train)
+
+    def _train(self, next_batch):
+        '''
+        This method trains the model given the results from the
+        `self._choose_next_batch` method. It also extends the new batch to the
+        `training_*` properties of this class.
+
+        Arg:
+            next_batch  A 3-tuple containing a sequence for the features, a
+                        sequence for the labels (DFT-calculated adsorption
+                        energies in this case), and a sequence for the
+                        surfaces.
+        '''
+        # Parse the incoming batch
+        try:
+            features, dft_energies, next_surfaces = next_batch
+        # The `BaseDiscoverer` can do an initial training by feeding this
+        # `_train` method two arguments:  features and labels. But this
+        # `BaseAdsorptionDiscoverer` assumes that the `next_batch` argument
+        # contains three arguments:  features, labels, AND surfaces. If we
+        # don't get that third argument here, then assume that we are doing the
+        # initial training and create it ourselves.
+        except ValueError:
+            features, dft_energies = next_batch
+            next_surfaces = self.training_surfaces
+
+        # Get predictions and uncertainties for this next batch
+        try:
+            predictions, uncertainties = self.model.predict(features)
+            residuals = predictions - dft_energies
+            self.residuals.extend(residuals.tolist())
+            self.uncertainties.extend(uncertainties)
+        # If prediction doesn't work, then we probably haven't trained the
+        # first batch. And if haven't done this, then there's no need to save
+        # the residuals and uncertainty estimates.
+        except AttributeError:
+            pass
+
+        # Extend new training points onto old ones
+        self.training_features.extend(features)
+        self.training_labels.extend(dft_energies)
+        self.training_surfaces.extend(next_surfaces)
+
+        # Retrain
+        self.model.train(self.training_features, self.training_labels)
+        self._save_current_run()
 
     def _update_reward(self):
         '''
@@ -650,6 +698,9 @@ class AdsorptionDiscovererBase(ActiveDiscovererBase):
         with open(cache_name, 'wb') as file_handle:
             pickle.dump(cache, file_handle)
 
+        # Save the model state
+        self.model.save()
+
     def load_last_run(self):
         '''
         Updates the attributes according to the last cache
@@ -664,10 +715,12 @@ class AdsorptionDiscovererBase(ActiveDiscovererBase):
         for key, value in cache.items():
             setattr(self, key, value)
 
+        self.model.load()
+
     @property
     def cache_location(self):
         '''
-        Child classes should set this property to a string indicating the
-        folder to store the cache in
+        Uses the type of both the discoverer and the model to create a folder
+        name to store caches in.
         '''
-        raise NotImplementedError
+        return './' + str(type(self)) + '_' + str(type(self.model)) + '_caches/'
