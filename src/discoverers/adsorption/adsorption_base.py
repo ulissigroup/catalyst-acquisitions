@@ -23,18 +23,15 @@ class AdsorptionDiscovererBase(ActiveDiscovererBase):
     assumptions:  1) we are trying to optimize the adsorption energy and 2) our
     inputs are a list of dictionaries with the 'energy' and 'std' keys.
     '''
-    def __init__(self, target_energy, quantile_cutoff,
+    def __init__(self, quantile_cutoff, value_calculator,
                  training_features, training_labels, training_surfaces,
                  sampling_features, sampling_labels, sampling_surfaces,
-                 n_samples=20, alpha=1., beta=1.,
-                 batch_size=200, init_train=True):
+                 n_samples=20, batch_size=200, init_train=True):
         '''
         Perform the initial training for the active discoverer, and then
         initialize all of the other attributes.
 
         Args:
-            target_energy       The optimal adsorption energy of an adsorption
-                                site.
             quantile_cutoff     A float within (0, 1). When we search for bulk
                                 materials, we want to classify them as "good"
                                 or "not good". "Good" is defined as whether a
@@ -45,6 +42,9 @@ class AdsorptionDiscovererBase(ActiveDiscovererBase):
                                 example:  A value of 0.95 will search for the
                                 top 5% of bulks; a value of 0.80 will search
                                 for the top 20% of bulks; etc.
+            value_calculator    A function that calculates the value of a
+                                surface given the low-coverage adsorption
+                                energy.
             training_features   A sequence that contains the features that can
                                 be used to train/initialize the surrogate model
                                 of the active discoverer.
@@ -68,11 +68,6 @@ class AdsorptionDiscovererBase(ActiveDiscovererBase):
                                 this sampling so that we can propagate
                                 uncertainty from the site-level to the
                                 bulk-level.
-            alpha               A float for the pre-exponential factor of the
-                                Arrhenius relationship between energy and value.
-            beta                A float for the exponential factor of the
-                                Arrhenius relationship between energy and
-                                value; akin to the activation energy.
             batch_size          An integer indicating how many elements in the
                                 sampling space you want to choose during each
                                 batch of discovery. Defaults to 200.
@@ -90,11 +85,9 @@ class AdsorptionDiscovererBase(ActiveDiscovererBase):
                              for mpid, miller, shift, top in training_surfaces]
 
         # Additional attributes for adsorption energies
-        self.target_energy = target_energy
+        self.value_calculator = value_calculator
         self.sampling_surfaces = sampling_surfaces
         self.n_samples = n_samples
-        self.alpha = alpha
-        self.beta = beta
         if init_train is True:
             self.training_surfaces = []
         else:
@@ -260,13 +253,10 @@ class AdsorptionDiscovererBase(ActiveDiscovererBase):
         if energies_by_surface is None:
             energies_by_surface = self.calculate_low_coverage_binding_energies_by_surface(current=current)
 
-        # Perform an Arrhenius-like transformation of the binding energies to
-        # get a rough estimate of value/activity.
         values_by_surface = {}
         for surface, energies in energies_by_surface.items():
-            energy_diffs = np.abs(energies - self.target_energy)
-            value = self.alpha * np.exp(-self.beta * energy_diffs)
-            values_by_surface[surface] = value
+            values = [self.value_calculator(energy) for energy in energies]
+            values_by_surface[surface] = values
 
         return values_by_surface
 
