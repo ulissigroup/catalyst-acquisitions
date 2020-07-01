@@ -3,9 +3,10 @@ __emails__ = ['ktran@andrew.cmu.edu', 'willie@cs.cmu.edu']
 
 
 import numpy as np
+from .base import BaseModel
 
 
-class NullModel:
+class NullModel(BaseModel):
     '''
     This is a null model, which does nothing during training, and always
     predicts 0 for mean and 1 for uncertainty.
@@ -20,3 +21,9 @@ class NullModel:
         predictions = np.zeros(len(features))
         uncertainties = np.ones(len(features))
         return predictions, uncertainties
+
+    def save(self):
+        pass
+
+    def load(self):
+        pass

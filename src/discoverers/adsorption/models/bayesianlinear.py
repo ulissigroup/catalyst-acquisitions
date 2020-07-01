@@ -4,9 +4,10 @@ __email__ = 'willie@cs.cmu.edu'
 
 import numpy as np
 from sklearn.linear_model import BayesianRidge
+from .base import BaseModel
 
 
-class BayesianLinearModel:
+class BayesianLinearModel(BaseModel):
     '''
     A Bayesian linear model, implemented via scikit-learn.
     '''

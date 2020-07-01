@@ -2,15 +2,17 @@ __author__ = 'Kevin Tran'
 __email__ = 'ktran@andrew.cmu.edu'
 
 
+import os
 import torch
 from torch_geometric.data import DataLoader
 from ocpmodels.trainers.simple_trainer import SimpleTrainer
 from ocpmodels.trainers.gpytorch_trainer import GPyTorchTrainer
 from ocpmodels.trainers.cfgp_trainer import CfgpTrainer
 from ocpmodels.datasets.gasdb import Gasdb
+from .base import BaseModel
 
 
-class CFGP:
+class CFGP(BaseModel):
     '''
     This is our wrapper for using a convolution-fed Gaussian process to predict
     adsorption energies.
@@ -119,3 +121,25 @@ class CFGP:
         predictions = predictions.detach().cpu().numpy()
         uncertainties = uncertainties.detach().cpu().numpy()
         return predictions, uncertainties
+
+    def save(self):
+        '''
+        Calls the `save_state` method of the `CFGPTrainer` class.
+        '''
+        self.trainer.save_state()
+
+    def load(self):
+        '''
+        Load the `checkpoint.pt` file in the last subfolder within
+        `checkpoints/`. Note that once we instantiate this model, we
+        automatically create another subfolder. So technically, we look for the
+        second-to-last folder to read a `checkpoint.pt` file, which WAS the
+        last folder before we made anothehr one.
+        '''
+        prefix = 'checkpoints'
+        cp_folders = os.listdir(prefix)
+        cp_folders.sort()
+        nn_checkpoint_file = os.path.join(prefix, cp_folders[-2], 'checkpoint.pt')
+
+        self.model._init_cfgp_trainer([0])
+        self.model.trainer.load_state(nn_checkpoint_file=nn_checkpoint_file)
