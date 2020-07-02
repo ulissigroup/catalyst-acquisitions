@@ -94,9 +94,9 @@ class TPOT(BaseModel):
         Saves the state of the model into some pickles
         '''
         with open(self._fingerprinter_cache, 'wb') as file_handle:
-            pickle.dump(self.model.preprocessor, file_handle)
+            pickle.dump(self.preprocessor, file_handle)
         with open(self._pipeline_cache, 'wb') as file_handle:
-            pickle.dump(self.model.tpot.fitted_pipeline_, file_handle)
+            pickle.dump(self.tpot.fitted_pipeline_, file_handle)
 
     def load(self):
         '''

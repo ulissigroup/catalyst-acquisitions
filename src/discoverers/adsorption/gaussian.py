@@ -28,12 +28,13 @@ class GaussianDiscoverer(BaseAdsorptionDiscoverer):
     ...sorry for the awful code. This is a hack-job and I know it.
     '''
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, target_energy, assumed_stdev=0.1, *args, **kwargs):
         '''
         In addition to the normal things that this class's parent classes do in
         `__init__` this method also instantiates the `TPOTWrapper`
         '''
-        self.assumed_stdev = 0.1
+        self.target_energy = target_energy
+        self.assumed_stdev = assumed_stdev
         super().__init__(*args, **kwargs)
 
     def _choose_next_batch(self):
