@@ -12,10 +12,10 @@ __email__ = 'ktran@andrew.cmu.edu'
 from collections import defaultdict
 import numpy as np
 from scipy.stats import norm
-from .base import AdsorptionDiscovererBase
+from .base import BaseAdsorptionDiscoverer
 
 
-class MultiscaleDiscoverer(AdsorptionDiscovererBase):
+class MultiscaleDiscoverer(BaseAdsorptionDiscoverer):
     '''
     This discoverer uses a multi-scale method for selecting new sites with the
     goal of partitioning the search space of bulks into 'good' and 'not good'.
@@ -145,7 +145,7 @@ class MultiscaleDiscoverer(AdsorptionDiscovererBase):
                                 where things earlier in the list should be
                                 sampled first.
         '''
-        acquisition_values = [(values.std(), surface)
+        acquisition_values = [(np.std(values), surface)
                               for surface, values in surface_values.items()]
         acquisition_values.sort(reverse=True)
 

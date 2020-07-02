@@ -254,7 +254,7 @@ class BaseAdsorptionDiscoverer(BaseActiveDiscoverer):
         surface_values_by_bulk = {}
         for surface, values in values_by_surface.items():
             bulk_id = surface[0]
-            surface_values = values.reshape((1, -1))
+            surface_values = np.array(values).reshape((1, -1))
             try:
                 surface_values_by_bulk[bulk_id] = np.concatenate((surface_values_by_bulk[bulk_id], surface_values), axis=0)
             except KeyError:
@@ -723,4 +723,4 @@ class BaseAdsorptionDiscoverer(BaseActiveDiscoverer):
         Uses the type of both the discoverer and the model to create a folder
         name to store caches in.
         '''
-        return './' + str(type(self)) + '_' + str(type(self.model)) + '_caches/'
+        return './' + type(self).__name__ + '_' + type(self.model).__name__ + '_caches/'

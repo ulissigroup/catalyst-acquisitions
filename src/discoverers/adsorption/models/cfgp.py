@@ -22,13 +22,15 @@ class CFGP(BaseModel):
         self.db_dir = db_dir
         self.dataset = Gasdb({'src': self.db_dir})
 
-    def train(self, indices):
+    def train(self, indices, _labels=None):
         '''
         Trains both the network and GP in series
 
         Args:
             indices     A sequences of integers that map to the row numbers
                         within the database that you want to train on
+            _labels     Dummy argument that is not used. It is here to be
+                        consistent with the parent class.
         '''
         self._init_cfgp_trainer(indices)
 
