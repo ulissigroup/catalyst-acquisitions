@@ -88,12 +88,9 @@ class BaseAdsorptionDiscoverer(BaseActiveDiscoverer):
         # Additional attributes for adsorption energies
         self.model = model
         self.value_calculator = value_calculator
+        self.training_surfaces = training_surfaces
         self.sampling_surfaces = sampling_surfaces
         self.n_samples = n_samples
-        if init_train is True:
-            self.training_surfaces = []
-        else:
-            self.training_surfaces = training_surfaces
 
         # Error handling
         if not (0 < quantile_cutoff < 1):
@@ -139,7 +136,8 @@ class BaseAdsorptionDiscoverer(BaseActiveDiscoverer):
         # initial training and create it ourselves.
         except ValueError:
             features, dft_energies = next_batch
-            next_surfaces = self.training_surfaces
+            next_surfaces = deepcopy(self.training_surfaces)
+            self.training_surfaces = []  # This should be popped
 
         # Get predictions and uncertainties for this next batch
         try:

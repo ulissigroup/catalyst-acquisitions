@@ -25,9 +25,6 @@ class MultiscaleDiscoverer(BaseAdsorptionDiscoverer):
     learning (AL)/uncertainty sampling to choose which surface in the bulk to
     sample next; then for that surface it uses active optimization (AO) to
     choose which site on the surface to sample next.
-
-    All surrogate model predictions and corresponding uncertainty estimates
-    come from a convolution-fed Gaussian process (CFGP).
     '''
 
     def _choose_next_batch(self):
@@ -71,9 +68,6 @@ class MultiscaleDiscoverer(BaseAdsorptionDiscoverer):
             except ValueError:
                 assert len(self.sampling_features) == 0
                 break
-
-        # Checkpoint the model state
-        self.model.trainer.save_state()
 
         self.next_batch_number += 1
         return features, labels
