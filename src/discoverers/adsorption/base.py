@@ -16,6 +16,11 @@ import numpy as np
 from scipy.stats import norm
 from ..base import BaseActiveDiscoverer
 
+# import line_profiler
+# import atexit
+# profile = line_profiler.LineProfiler()
+# atexit.register(profile.print_stats)
+
 
 class BaseAdsorptionDiscoverer(BaseActiveDiscoverer):
     '''
@@ -88,8 +93,8 @@ class BaseAdsorptionDiscoverer(BaseActiveDiscoverer):
         # Additional attributes for adsorption energies
         self.model = model
         self.value_calculator = value_calculator
-        self.training_surfaces = training_surfaces
-        self.sampling_surfaces = sampling_surfaces
+        self.training_surfaces = deepcopy(training_surfaces)
+        self.sampling_surfaces = deepcopy(sampling_surfaces)
         self.n_samples = n_samples
 
         # Error handling
@@ -113,6 +118,9 @@ class BaseAdsorptionDiscoverer(BaseActiveDiscoverer):
                          sampling_features, sampling_labels,
                          batch_size=batch_size, init_train=init_train)
 
+        # Cache some metadata
+        _ = self._calculate_final_classes()
+
     def _train(self, next_batch):
         '''
         This method trains the model given the results from the
@@ -135,6 +143,7 @@ class BaseAdsorptionDiscoverer(BaseActiveDiscoverer):
         # don't get that third argument here, then assume that we are doing the
         # initial training and create it ourselves.
         except ValueError:
+            assert self.next_batch_number == 0
             features, dft_energies = next_batch
             next_surfaces = deepcopy(self.training_surfaces)
             self.training_surfaces = []  # This should be popped
@@ -346,14 +355,14 @@ class BaseAdsorptionDiscoverer(BaseActiveDiscoverer):
         # Grab the correct dataset
         if concatenated_energies is None:
             if current is True:
-                energies, stdevs, surfaces = self._concatenate_predicted_energies()
+                _, energies, stdevs, surfaces = self._concatenate_predicted_energies()
             elif current is False:
-                energies, stdevs, surfaces = self._concatenate_true_energies()
+                _, energies, stdevs, surfaces = self._concatenate_true_energies()
             else:
                 raise ValueError('The "current" argument should be Boolean, but is '
                                  'instead %s.' % type(current))
         else:
-            energies, stdevs, surfaces = concatenated_energies
+            _, energies, stdevs, surfaces = concatenated_energies
 
         # "Sample" all the sites `self.n_samples` times
         energies_by_surface = {}
@@ -386,6 +395,9 @@ class BaseAdsorptionDiscoverer(BaseActiveDiscoverer):
         uncertainty will come from the surrogate model.
 
         Returns:
+            features    A list containing all the features of everything in the
+                        discovery space (including both sampled and unsampled
+                        sites).
             energies    A sequence containing all the energies of everything in
                         the discovery space (including both sampled and
                         unsampled sites).
@@ -398,6 +410,7 @@ class BaseAdsorptionDiscoverer(BaseActiveDiscoverer):
         '''
         # Get the energies of things we've already "sampled". We also set their
         # uncertainties to 0 because we "know" what their values are.
+        sampled_features = deepcopy(self.training_features)
         sampled_energies = deepcopy(self.training_labels)
         sampled_stdevs = [0. for _ in sampled_energies]
         sampled_surfaces = deepcopy(self.training_surfaces)
@@ -409,6 +422,7 @@ class BaseAdsorptionDiscoverer(BaseActiveDiscoverer):
             unsampled_surfaces = deepcopy(self.sampling_surfaces)
 
             # Put it all together
+            features = sampled_features + unsampled_features
             energies = sampled_energies + np.array(predicted_energies).tolist()
             stdevs = sampled_stdevs + np.array(predicted_stdevs).tolist()
             surfaces = sampled_surfaces + unsampled_surfaces
@@ -420,7 +434,7 @@ class BaseAdsorptionDiscoverer(BaseActiveDiscoverer):
 
         # Cache the energies
         self._predicted_energies = energies, stdevs, surfaces
-        return energies, stdevs, surfaces
+        return features, energies, stdevs, surfaces
 
     def _concatenate_true_energies(self):
         '''
@@ -429,6 +443,9 @@ class BaseAdsorptionDiscoverer(BaseActiveDiscoverer):
         only from DFT results and always return an uncertainty of 0.
 
         Returns:
+            features    A list containing all the features of everything in the
+                        discovery space (including both sampled and unsampled
+                        sites).
             energies    A sequence containing all the energies of everything in
                         the discovery space (including both sampled and
                         unsampled sites).
@@ -441,20 +458,23 @@ class BaseAdsorptionDiscoverer(BaseActiveDiscoverer):
         '''
         # Get the energies of things we've already "sampled". We also set their
         # uncertainties to 0 because we "know" what their values are.
+        sampled_features = deepcopy(self.training_features)
         sampled_energies = deepcopy(self.training_labels)
         sampled_stdevs = [0. for _ in sampled_energies]
         sampled_surfaces = deepcopy(self.training_surfaces)
 
         # Grab the results from the unsampled sites
+        unsampled_features = deepcopy(self.sampling_features)
         unsampled_energies = deepcopy(self.sampling_labels)
         unsampled_stdevs = [0. for _ in unsampled_energies]
         unsampled_surfaces = deepcopy(self.sampling_surfaces)
 
         # Put it all together
+        features = sampled_features + unsampled_features
         energies = np.concatenate((sampled_energies, unsampled_energies), axis=0)
         stdevs = np.array(sampled_stdevs + unsampled_stdevs)
         surfaces = sampled_surfaces + unsampled_surfaces
-        return energies, stdevs, surfaces
+        return features, energies, stdevs, surfaces
 
     def _classify_bulks(self, bulk_values, return_list=False):
         '''
@@ -506,12 +526,11 @@ class BaseAdsorptionDiscoverer(BaseActiveDiscoverer):
                        `self._update_reward`)
         '''
         # Initialize
-        final_bulk_classes = self._calculate_final_classes()
         true_positives = 0
         false_positives = 0
 
         # Count the number of true positives and false positives
-        for bulk, final_class in final_bulk_classes.items():
+        for bulk, final_class in self.final_bulk_classes.items():
             current_class = current_bulk_classes[bulk]
             if current_class is True:
                 if final_class is True:
@@ -536,13 +555,12 @@ class BaseAdsorptionDiscoverer(BaseActiveDiscoverer):
                     `self._update_reward`)
         '''
         # Initialize
-        final_bulk_classes = self._calculate_final_classes()
         true_positives = 0
         actual_positives = 0
 
         # Count the number of actual positives and the number of correctly
         # classified positives (true positives)
-        for bulk, final_class in final_bulk_classes.items():
+        for bulk, final_class in self.final_bulk_classes.items():
             current_class = current_bulk_classes[bulk]
             if final_class is True:
                 actual_positives += 1

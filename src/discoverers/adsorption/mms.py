@@ -33,9 +33,12 @@ class MultiscaleDiscoverer(BaseAdsorptionDiscoverer):
         method.
 
         Returns:
-            features    The indices of the database rows that this method chose
-                        to investigate next
-            labels      The labels that this method chose to investigate next
+            features    The list of indices of the database rows that this
+                        method chose to investigate next
+            labels      The list of labels that this method chose to
+                        investigate next
+            surfaces    The list of surfaces that this method chose to
+                        investigate next
         '''
         features = []
         labels = []
@@ -54,6 +57,9 @@ class MultiscaleDiscoverer(BaseAdsorptionDiscoverer):
             # Remove the samples from the sampling space
             try:
                 sampling_space_index = self.sampling_features.index(index)
+                assert index == self.sampling_features[sampling_space_index]
+                assert energy == self.sampling_labels[sampling_space_index]
+                assert surface == self.sampling_surfaces[sampling_space_index]
                 del self.sampling_features[sampling_space_index]
                 del self.sampling_labels[sampling_space_index]
                 del self.sampling_surfaces[sampling_space_index]
@@ -70,7 +76,7 @@ class MultiscaleDiscoverer(BaseAdsorptionDiscoverer):
                 break
 
         self.next_batch_number += 1
-        return features, labels
+        return features, labels, surfaces
 
     def _calculate_surface_and_bulk_values(self, site_energies):
         '''
@@ -196,16 +202,11 @@ class MultiscaleDiscoverer(BaseAdsorptionDiscoverer):
         # Tuning parameter for EI
         xi = 0.01
 
-        # Grab the indices of all the sites
-        training_indices = self.training_features
-        sampling_indices = self.sampling_features
-        db_indices = training_indices + sampling_indices
-
         # Parse/package the input for faster processing
-        energies, stdevs, surfaces = site_energies
+        features, energies, stdevs, surfaces = site_energies
         parsed_sites = {mpid: {surface: [] for surface in ordered_surfaces[mpid]}
                         for mpid in ordered_bulks}
-        for site_index, (db_index, energy, std, surface) in enumerate(zip(db_indices, energies, stdevs, surfaces)):
+        for site_index, (db_index, energy, std, surface) in enumerate(zip(features, energies, stdevs, surfaces)):
             mpid = surface[0]
             # Only want to consider sites on the correct surface. And if the
             # sigma is zero, then it's a site we've sampled before and
@@ -240,15 +241,15 @@ class MultiscaleDiscoverer(BaseAdsorptionDiscoverer):
                     site_found = True
                     _, db_index, site_index = acquisition_values[0]
 
-                # Exit the search if we've found a site successfully
-                if site_found is True:
+                    # Exit the search if we've found a site successfully
                     break
             if site_found is True:
                 break
+        assert site_found is True
 
         # "Hallucinate" the item we just picked by setting its corresponding
         # standard deviation prediction to 0
-        site_energies[1][site_index] = 0.
+        site_energies[2][site_index] = 0.
 
         # We also need to get the DFT-calculated energy for later use
         db = self.model.dataset.ase_db

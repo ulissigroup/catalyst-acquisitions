@@ -24,6 +24,7 @@ class PrimeModel(BaseModel):
     def __init__(self, db_dir, uncertainty=0.1, df=1):
         '''
         Args:
+            db_dir          A string indicating the location of the ASE db
             uncertainty     The scale parameter used in the Chi-Squared
                             distribution that we sample the uncertainties from.
             df              The degrees of freedom used in the Chi-Squared
