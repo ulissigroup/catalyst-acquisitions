@@ -88,8 +88,8 @@ class BaseAdsorptionDiscoverer(BaseActiveDiscoverer):
         # Additional attributes for adsorption energies
         self.model = model
         self.value_calculator = value_calculator
-        self.training_surfaces = training_surfaces
-        self.sampling_surfaces = sampling_surfaces
+        self.training_surfaces = deepcopy(training_surfaces)
+        self.sampling_surfaces = deepcopy(sampling_surfaces)
         self.n_samples = n_samples
 
         # Error handling
@@ -398,9 +398,27 @@ class BaseAdsorptionDiscoverer(BaseActiveDiscoverer):
         '''
         # Get the energies of things we've already "sampled". We also set their
         # uncertainties to 0 because we "know" what their values are.
+
+
+        # ------------------
+        # Version 1: set sampled energies to labels, and sampled stdevs to 0.
+        # ------------------
         sampled_energies = deepcopy(self.training_labels)
         sampled_stdevs = [0. for _ in sampled_energies]
         sampled_surfaces = deepcopy(self.training_surfaces)
+        #
+        #
+        # ------------------
+        # Version 2: predict energies and use predicted stdevs.
+        # ------------------
+        #sampled_features = deepcopy(self.training_features)
+        #sampled_energies, sampled_stdevs = self.model.predict(sampled_features)
+        #sampled_surfaces = deepcopy(self.training_surfaces)
+        ##
+        #sampled_energies = np.array(sampled_energies).tolist()
+        #sampled_stdevs = np.array(sampled_stdevs).tolist()
+        #
+        #
 
         # Use the model to make predictions on the unsampled space
         unsampled_features = deepcopy(self.sampling_features)
@@ -416,7 +434,13 @@ class BaseAdsorptionDiscoverer(BaseActiveDiscoverer):
         # If there's nothing left to concatenate, then just return the already
         # sampled information
         except (np.core._exceptions.AxisError, RuntimeError):
+            print('EXCEPTION: in adsorption_base > _concatenate_predicted_energies')
             energies, stdevs, surfaces = sampled_energies, sampled_stdevs, sampled_surfaces
+
+        # ----------
+        # Always return all surfaces
+        surfaces = sampled_surfaces + unsampled_surfaces
+        # ----------
 
         # Cache the energies
         self._predicted_energies = energies, stdevs, surfaces
