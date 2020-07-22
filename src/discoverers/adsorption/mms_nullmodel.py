@@ -11,6 +11,7 @@ __email__ = 'ktran@andrew.cmu.edu'
 
 import os
 from collections import defaultdict
+from copy import deepcopy
 import numpy as np
 from scipy.stats import norm
 
@@ -58,8 +59,10 @@ class MultiscaleDiscovererNullModel(AdsorptionDiscovererBase):
         Args:
             next_batch  The output of this class's `_choose_next_batch` method
         '''
+
+        #indices, dft_energies, next_surfaces = next_batch
         indices, dft_energies = next_batch
-        next_surfaces = self.get_surfaces_from_indices(indices)
+        #next_surfaces = self.get_surfaces_from_indices(indices)
 
         # Calculate and save the results of this next batch
         try:
@@ -76,9 +79,12 @@ class MultiscaleDiscovererNullModel(AdsorptionDiscovererBase):
         # Retrain
         self.training_features.extend(indices)
         self.training_labels.extend(dft_energies)
-        self.training_surfaces.extend(next_surfaces)
+
+        #self.training_surfaces.extend(next_surfaces)
+
         self.model.train()
         self._save_current_run()
+
 
     def get_surfaces_from_indices(self, indices):
         surfaces = []
@@ -87,9 +93,7 @@ class MultiscaleDiscovererNullModel(AdsorptionDiscovererBase):
         for index in indices:
 
             #data = db.get(index).data
-
-            #data = self.json_list[index - 1]
-            data = self.json_list[index]
+            data = self.json_list[index - 1]
 
             mpid = data['mpid']
             miller = tuple(index for index in data['miller'])
@@ -129,7 +133,10 @@ class MultiscaleDiscovererNullModel(AdsorptionDiscovererBase):
                 sampling_space_index = self.sampling_features.index(index)
                 del self.sampling_features[sampling_space_index]
                 del self.sampling_labels[sampling_space_index]
+
+                surface_to_transfer = deepcopy(self.sampling_surfaces[sampling_space_index])
                 del self.sampling_surfaces[sampling_space_index]
+                self.training_surfaces.append(surface_to_transfer)
 
                 # Update the batch information
                 features.append(index)
