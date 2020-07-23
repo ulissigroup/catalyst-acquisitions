@@ -9,10 +9,17 @@ __author__ = 'Kevin Tran'
 __email__ = 'ktran@andrew.cmu.edu'
 
 
+import warnings
 from collections import defaultdict
 import numpy as np
 from scipy.stats import norm
 from .base import BaseAdsorptionDiscoverer
+
+# The tqdm autonotebook is still experimental, and it warns us. We don't care,
+# and would rather not hear about the warning everytime.
+with warnings.catch_warnings():
+    warnings.simplefilter('ignore')
+    from tqdm.autonotebook import tqdm
 
 
 class MultiscaleDiscoverer(BaseAdsorptionDiscoverer):
@@ -46,7 +53,8 @@ class MultiscaleDiscoverer(BaseAdsorptionDiscoverer):
 
         # Choose `self.batch_size` samples
         site_energies = self._concatenate_predicted_energies()
-        for _ in range(self.batch_size):
+        for _ in tqdm(range(self.batch_size), total=self.batch_size,
+                      desc='choosing batch %i' % self.next_batch_number):
 
             # Use the site energies to pick the bulk/surface/site we want next
             surface_values, bulk_values = self._calculate_surface_and_bulk_values(site_energies)
