@@ -153,8 +153,10 @@ class MultiscaleDiscoverer(BaseAdsorptionDiscoverer):
                                 where things earlier in the list should be
                                 sampled first.
         '''
-        acquisition_values = [(np.std(values), surface)
-                              for surface, values in surface_values.items()]
+        surfaces = list(surface_values.keys())
+        values = np.array(list(surface_values.values()))
+        acqs = values.std(axis=1)
+        acquisition_values = [(acq, surf) for surf, acq in zip(surfaces, acqs)]
         acquisition_values.sort(reverse=True)
 
         ordered_surfaces = defaultdict(list)

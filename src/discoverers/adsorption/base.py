@@ -8,7 +8,7 @@ __emails__ = ['ktran@andrew.cmu.edu', 'willie@cs.cmu.edu']
 
 
 import os
-import warnings
+from collections import defaultdict
 from copy import deepcopy
 import pickle
 from pathlib import Path
@@ -96,6 +96,7 @@ class BaseAdsorptionDiscoverer(BaseActiveDiscoverer):
         self.training_surfaces = deepcopy(training_surfaces)
         self.sampling_surfaces = deepcopy(sampling_surfaces)
         self.n_samples = n_samples
+        self.total_sites = len(self.training_surfaces) + len(self.sampling_surfaces)
 
         # Error handling
         if not (0 < quantile_cutoff < 1):
@@ -308,11 +309,15 @@ class BaseAdsorptionDiscoverer(BaseActiveDiscoverer):
         if energies_by_surface is None:
             energies_by_surface = self.calculate_low_coverage_binding_energies_by_surface(current=current)
 
-        values_by_surface = {}
-        for surface, energies in energies_by_surface.items():
-            values = [self.value_calculator(energy) for energy in energies]
-            values_by_surface[surface] = values
+        # Unpack the energies by surface into corresponding lists. We do this
+        # so that we can have a numpy array of energies, which we can calculate
+        # into activities faster as one array rather than many
+        surfaces = list(energies_by_surface.keys())
+        energies = np.array(list(energies_by_surface.values()))
+        values = self.value_calculator(energies)
 
+        # Re-package the values according to their surfaces
+        values_by_surface = {surface: values for surface, values in zip(surfaces, values)}
         return values_by_surface
 
     def calculate_low_coverage_binding_energies_by_surface(self,
@@ -364,26 +369,25 @@ class BaseAdsorptionDiscoverer(BaseActiveDiscoverer):
         else:
             _, energies, stdevs, surfaces = concatenated_energies
 
-        # "Sample" all the sites `self.n_samples` times
-        energies_by_surface = {}
-        for energy, stdev, surface in zip(energies, stdevs, surfaces):
-            try:
-                samples = norm.rvs(loc=energy, scale=stdev, size=self.n_samples)
-            # Sometimes stdev predictions go wrong. Move on if this happens
-            except ValueError:
-                assert np.isnan(stdev)
-                warnings.warn('Just tried to sample site energy when std is '
-                              'nan. Ignored and moving on.', RuntimeWarning)
-                continue
-            samples = np.array(samples).reshape((1, -1))
-            try:
-                energies_by_surface[surface] = np.concatenate((energies_by_surface[surface], samples), axis=0)
-            except KeyError:
-                energies_by_surface[surface] = samples
+        # Sample the adsorption energies from our predicted distributions
+        normalized_samples = norm.rvs(loc=0, scale=1, size=self.n_samples*self.total_sites)
+        normalized_samples = normalized_samples.reshape((self.n_samples, self.total_sites))
+        energy_samples = np.array(energies) + np.array(stdevs) * normalized_samples
+
+        # Parse the energies into their respective surfaces
+        surface_indices = defaultdict(list)
+        for i, surface in enumerate(surfaces):
+            surface_indices[surface].append(i)
+        energies_by_surface = {surface: energy_samples[:, indices]
+                               for surface, indices in surface_indices.items()}
+
+        # Filter out a site if any of its samples are nan
+        energies_by_surface = {surface: energies[:, ~np.isnan(energies).any(axis=0)]
+                               for surface, energies in energies_by_surface.items()}
 
         # Grab the lowest energy from each surface for each of the samples
-        low_cov_energies_by_surface = {surface: sampled_energies.min(axis=0)
-                                       for surface, sampled_energies in energies_by_surface.items()}
+        low_cov_energies_by_surface = {surface: energies.min(axis=1)
+                                       for surface, energies in energies_by_surface.items()}
         return low_cov_energies_by_surface
 
     def _concatenate_predicted_energies(self):

@@ -20,32 +20,41 @@ M_LHS, B_LHS, _, _, _ = stats.linregress(X_LHS, Y_LHS)
 M_RHS, B_RHS, _, _, _ = stats.linregress(X_RHS, Y_RHS)
 
 
-def calc_co2rr_activity(eCO):
+def calc_co2rr_activities(eCOs):
     '''
     Calculates the activity of the CO2 reduction reaction given the binding
     energy of CO. We do this with the 211 volcano relationship in Figure 4b of
     https://www.nature.com/articles/ncomms15438.
 
     Arg:
-        eCO     Binding energy of CO (dE, not dG. We assume dE is 0.5 eV less
+        eCOs    Binding energies of CO (dE, not dG. We assume dE is 0.5 eV less
                 than dG). We assume units of eV.
     Returns:
-        activity    Reaction rate of CO2 reduction in mA/cm**2
+        activities  Reaction rates of CO2 reduction in mA/cm**2
     '''
-    dG = eCO + 0.5
-    if eCO < -0.67:
-        ln_activity = _calc_activity_lhs(dG)
-    else:
-        ln_activity = _calc_activity_rhs(dG)
-    activity = np.exp(ln_activity)
+    dGs = eCOs + 0.5
+
+    # Divide the energies into those that fit on the left-hand-side of the
+    # volcano and those that fit on the right-hand-side of it.
+    lhs_dGs = np.where(eCOs < -0.67, dGs, -np.inf)
+    rhs_dGs = np.where(eCOs >= -0.67, dGs, np.inf)
+
+    # Calculate the log-scale activities for each side and then concatenate
+    # them back together
+    lhs_ln_activity = _calc_activity_lhs(lhs_dGs)
+    rhs_ln_activity = _calc_activity_rhs(rhs_dGs)
+    ln_activities = lhs_ln_activity + rhs_ln_activity
+
+    # Report the actual activities
+    activities = np.exp(ln_activities)
+    return activities
+
+
+def _calc_activity_lhs(dGs):
+    activity = M_LHS * dGs + B_LHS
     return activity
 
 
-def _calc_activity_lhs(dG):
-    activity = M_LHS * dG + B_LHS
-    return activity
-
-
-def _calc_activity_rhs(dG):
-    activity = M_RHS * dG + B_RHS
+def _calc_activity_rhs(dGs):
+    activity = M_RHS * dGs + B_RHS
     return activity
