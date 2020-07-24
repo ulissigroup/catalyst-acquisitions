@@ -60,28 +60,28 @@ class MultiscaleDiscoverer(BaseAdsorptionDiscoverer):
             surface_values, bulk_values = self._calculate_surface_and_bulk_values(site_energies)
             ordered_bulks = self._prioritize_bulks(bulk_values)
             ordered_surfaces = self._prioritize_surfaces(surface_values)
-            index, energy, surface = self._select_site(ordered_bulks, ordered_surfaces, site_energies)
-
-            # Remove the samples from the sampling space
             try:
-                sampling_space_index = self.sampling_features.index(index)
-                assert index == self.sampling_features[sampling_space_index]
-                assert energy == self.sampling_labels[sampling_space_index]
-                assert surface == self.sampling_surfaces[sampling_space_index]
-                del self.sampling_features[sampling_space_index]
-                del self.sampling_labels[sampling_space_index]
-                del self.sampling_surfaces[sampling_space_index]
-
-                # Update the batch information
-                features.append(index)
-                labels.append(energy)
-                surfaces.append(surface)
+                index, energy, surface = self._select_site(ordered_bulks, ordered_surfaces, site_energies)
 
             # If the index is not in the sampling space, then we're probably
             # done the hallucination.
-            except ValueError:
+            except _NoSiteFoundError:
                 assert len(self.sampling_features) == 0
                 break
+
+            # Remove the samples from the sampling space
+            sampling_space_index = self.sampling_features.index(index)
+            assert index == self.sampling_features[sampling_space_index]
+            assert energy == self.sampling_labels[sampling_space_index]
+            assert surface == self.sampling_surfaces[sampling_space_index]
+            del self.sampling_features[sampling_space_index]
+            del self.sampling_labels[sampling_space_index]
+            del self.sampling_surfaces[sampling_space_index]
+
+            # Update the batch information
+            features.append(index)
+            labels.append(energy)
+            surfaces.append(surface)
 
         self.next_batch_number += 1
         return features, labels, surfaces
@@ -253,7 +253,10 @@ class MultiscaleDiscoverer(BaseAdsorptionDiscoverer):
                     break
             if site_found is True:
                 break
-        assert site_found is True
+
+        # Exit if we've found nothing
+        if site_found is False:
+            raise _NoSiteFoundError
 
         # "Hallucinate" the item we just picked by setting its corresponding
         # standard deviation prediction to 0
@@ -264,3 +267,7 @@ class MultiscaleDiscoverer(BaseAdsorptionDiscoverer):
         row = list(db.select(db_index))[0]
         dft_energy = row['data']['adsorption_energy']
         return db_index, dft_energy, surface
+
+
+class _NoSiteFoundError(RuntimeError):
+    pass
