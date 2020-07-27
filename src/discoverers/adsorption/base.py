@@ -16,11 +16,6 @@ import numpy as np
 from scipy.stats import norm
 from ..base import BaseActiveDiscoverer
 
-# import line_profiler
-# import atexit
-# profile = line_profiler.LineProfiler()
-# atexit.register(profile.print_stats)
-
 
 class BaseAdsorptionDiscoverer(BaseActiveDiscoverer):
     '''
@@ -215,13 +210,31 @@ class BaseAdsorptionDiscoverer(BaseActiveDiscoverer):
         This method updates a self.proxy_reward_history, which stores a proxy
         to our reward so far.
         '''
-        # Calculate current bulk classes
-        current_bulk_values = self.calculate_bulk_values(current=True)
-        _, good_bulk_value_list = self._classify_bulks(current_bulk_values,
-                                                       return_list=True)
+        bulk_values = self.calculate_bulk_values(current=True)
+        all_bulk_values = np.array(list(bulk_values.values())).mean(axis=1)
+        level_set = norm.ppf(self.quantile_cutoff,
+                             loc=all_bulk_values.mean(),
+                             scale=all_bulk_values.std())
 
-        proxy_reward = np.min([val for (b, val) in good_bulk_value_list])
-        self.proxy_reward_history.append(proxy_reward)
+        # Calculate the cumulative densities for each bulk
+        cdfs = []
+        for mpid, values in bulk_values.items():
+            mean = values.mean()
+            std = values.std()
+            # We ignore the CDF if the uncertainty is zero. This is acceptable
+            # because if the uncertainty is zero, then the likelihood of
+            # incorrect classification for that sample will be zero, and so
+            # ignoring the CDF will be effectively the same as correcting the
+            # CDF to 1.
+            if ~np.isnan(std) and std > 0:
+                cdf = norm.cdf(x=level_set, loc=mean, scale=std)
+                cdfs.append(cdf)
+
+        # Calculate the likelihood of classifying everything correctly
+        cdfs = np.array(cdfs)
+        likelihoods = np.array([cdfs, 1-cdfs]).max(axis=0)
+        nll = -np.log(likelihoods).sum()
+        self.proxy_reward_history.append(nll)
 
     def calculate_bulk_values(self, values_by_surface=None, current=True):
         '''

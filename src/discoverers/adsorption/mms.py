@@ -110,12 +110,12 @@ class MultiscaleDiscoverer(BaseAdsorptionDiscoverer):
                             where things earlier in the list should be sampled
                             first.
         '''
-        # Figure out the cutoff for the bulk value around which we will be
+        # Figure out the level_set for the bulk value around which we will be
         # classifying bulks as "good" or "bad"
         all_bulk_values = np.array([values.mean() for values in bulk_values.values()])
-        cutoff = norm.ppf(self.quantile_cutoff,
-                          loc=all_bulk_values.mean(),
-                          scale=all_bulk_values.std())
+        level_set = norm.ppf(self.quantile_cutoff,
+                             loc=all_bulk_values.mean(),
+                             scale=all_bulk_values.std())
 
         # The acquisition value of each bulk is the probability of incorrect
         # classification
@@ -123,7 +123,7 @@ class MultiscaleDiscoverer(BaseAdsorptionDiscoverer):
         for mpid, values in bulk_values.items():
             mean = values.mean()
             std = values.std()
-            cdf = norm.cdf(x=cutoff, loc=mean, scale=std)
+            cdf = norm.cdf(x=level_set, loc=mean, scale=std)
             acq_val = min(cdf, 1-cdf)
             if not np.isnan(acq_val):
                 acquisition_values.append((acq_val, mpid))
