@@ -39,14 +39,15 @@ def calc_co2rr_activities(eCOs):
     lhs_dGs = np.where(eCOs < -0.67, dGs, -np.inf)
     rhs_dGs = np.where(eCOs >= -0.67, dGs, np.inf)
 
-    # Calculate the log-scale activities for each side and then concatenate
-    # them back together
+    # Calculate the log-scale activities for each side
     lhs_ln_activity = _calc_activity_lhs(lhs_dGs)
     rhs_ln_activity = _calc_activity_rhs(rhs_dGs)
-    ln_activities = lhs_ln_activity + rhs_ln_activity
 
-    # Report the actual activities
-    activities = np.exp(ln_activities)
+    # Calculate the real-scaled activities and then concatenate them back
+    # together
+    lhs_activity = np.exp(lhs_ln_activity)
+    rhs_activity = np.exp(rhs_ln_activity)
+    activities = lhs_activity + rhs_activity
     return activities
 
 
