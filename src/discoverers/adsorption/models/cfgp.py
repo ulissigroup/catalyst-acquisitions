@@ -4,7 +4,8 @@ __email__ = 'ktran@andrew.cmu.edu'
 
 import os
 import torch
-from torch_geometric.data import DataLoader
+from torch.utils.data import DataLoader
+from ocpmodels.common.data_parallel import ParallelCollater
 from ocpmodels.trainers.simple_trainer import SimpleTrainer
 from ocpmodels.trainers.gpytorch_trainer import GPyTorchTrainer
 from ocpmodels.trainers.cfgp_trainer import CfgpTrainer
@@ -17,9 +18,10 @@ class CFGP(BaseModel):
     This is our wrapper for using a convolution-fed Gaussian process to predict
     adsorption energies.
     '''
-    def __init__(self, db_dir):
+    def __init__(self, db_dir, num_gpus=torch.cuda.device_count()):
         ''' Instantiate the settings for our CFGP '''
         self.db_dir = db_dir
+        self.num_gpus = num_gpus
         self.dataset = Gasdb({'src': self.db_dir})
 
     def train(self, indices, _labels=None):
@@ -44,6 +46,7 @@ class CFGP(BaseModel):
             self.dataset[train_indices],
             batch_size=self.cnn_args['optimizer']['batch_size'],
             shuffle=True,
+            collate_fn=self.collate_fn
         )
         self.trainer.train_loader = train_loader
         self.trainer.conv_trainer.train_loader = train_loader
@@ -69,7 +72,8 @@ class CFGP(BaseModel):
                  'atom_embedding_size': 64,
                  'fc_feat_size': 128,
                  'num_fc_layers': 4,
-                 'num_graph_conv_layers': 6}
+                 'num_graph_conv_layers': 6,
+                 'regress_forces': False}
         dataset = {'src': db_dir,
                    'train_size': len(indices),
                    'val_size': 0,
@@ -80,7 +84,8 @@ class CFGP(BaseModel):
                      'lr_milestones': [25, 45],
                      'max_epochs': 50,  # per hallucination batch
                      'warmup_epochs': 10,
-                     'warmup_factor': 0.2}
+                     'warmup_factor': 0.2,
+                     'num_gpus': self.num_gpus}
         self.cnn_args = {'task': task,
                          'model': model,
                          'dataset': dataset,
@@ -89,6 +94,11 @@ class CFGP(BaseModel):
 
         self.cnn_trainer = SimpleTrainer(**self.cnn_args)
         self.dataset = Gasdb(self.cnn_args['dataset'])
+
+        if self.num_gpus > 1:
+            self.collate_fn = ParallelCollater(self.num_gpus)
+        else:
+            self.collate_fn = None
 
     def _init_gp_trainer(self):
         self.gp_trainer = GPyTorchTrainer()
@@ -113,7 +123,8 @@ class CFGP(BaseModel):
 
         data_loader = DataLoader(
             self.dataset[indices],
-            batch_size=self.cnn_args['optimizer']['batch_size']
+            batch_size=self.cnn_args['optimizer']['batch_size'],
+            collate_fn=self.collate_fn
         )
 
         convs, _ = self.trainer._get_convolutions(data_loader)
