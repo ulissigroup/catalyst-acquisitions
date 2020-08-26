@@ -1,8 +1,11 @@
-import sys
-sys.path.insert(0, '../../')
-from src.discoverers.adsorption.mms import MultiscaleDiscoverer
 import random
 import ase.db
+
+import sys
+sys.path.insert(0, '../../../')
+from src.discoverers.adsorption.mms import MultiscaleDiscoverer
+from src.discoverers.adsorption.models import CFGP
+from src.discoverers.adsorption.values import calc_co2rr_activities
 
 
 adsorbate = 'CO'
@@ -11,7 +14,7 @@ initial_training_size = 200
 batch_size = 200
 quantile_cutoff = 0.95
 
-db_dir = '../pull_data/%s/' % adsorbate
+db_dir = '../../pull_data/%s/' % adsorbate
 db = ase.db.connect(db_dir + '%s.db' % adsorbate)
 rows = list(db.select())
 random.Random(42).shuffle(rows)
@@ -36,8 +39,9 @@ training_features, training_labels, training_surfaces = parse_rows(rows[:initial
 sampling_features, sampling_labels, sampling_surfaces = parse_rows(rows[initial_training_size:])
 
 # Initialize
-discoverer = MultiscaleDiscoverer(db_dir=db_dir,
-                                  target_energy=target_energy,
+model = CFGP(db_dir)
+discoverer = MultiscaleDiscoverer(model=model,
+                                  value_calculator=calc_co2rr_activities,
                                   quantile_cutoff=quantile_cutoff,
                                   batch_size=batch_size,
                                   training_features=training_features,
@@ -46,10 +50,11 @@ discoverer = MultiscaleDiscoverer(db_dir=db_dir,
                                   sampling_features=sampling_features,
                                   sampling_labels=sampling_labels,
                                   sampling_surfaces=sampling_surfaces,
-                                  init_train=False  # Set to `False` only for warm starts
-                                  )
+                                  #init_train=False  # Set to `False` only for warm starts
+                                 )
 
 # Or load the last run
 discoverer.load_last_run()
 
+# Run
 discoverer.simulate_discovery()
