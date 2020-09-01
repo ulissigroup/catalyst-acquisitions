@@ -2,8 +2,8 @@ import random
 import json
 import warnings
 
-import os
-os.environ['PYTHONPATH'] = '/home/jovyan/GASpy:/home/jovyan/GASpy/GASpy_regressions:'
+#import os
+#os.environ['PYTHONPATH'] = '/home/jovyan/GASpy:/home/jovyan/GASpy/GASpy_regressions:'
 
 import sys
 sys.path.append('../../..')
@@ -63,9 +63,9 @@ with warnings.catch_warnings():
                                     sampling_features=sampling_features,
                                     sampling_labels=sampling_labels,
                                     sampling_surfaces=sampling_surfaces,
-                                    #init_train=False  # Set to `False` only for warm starts
+                                    init_train=False  # Set to `False` only for warm starts
                                     )
-    #discoverer.load_last_run()
+    discoverer.load_last_run()
 
 # The GASpy fingerprinter will be yelling at us a lot about missing data.
 # Good to know in production, but also good to ignore here.
