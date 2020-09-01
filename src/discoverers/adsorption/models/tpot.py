@@ -103,9 +103,9 @@ class TPOT(BaseModel):
         Loads a previous state of the model from some pickles
         '''
         with open(self._fingerprinter_cache, 'rb') as file_handle:
-            self.model.preprocessor = pickle.load(file_handle)
+            self.preprocessor = pickle.load(file_handle)
         with open(self._pipeline_cache, 'rb') as file_handle:
-            self.model.tpot.fitted_pipeline_ = pickle.load(file_handle)
+            self.tpot.fitted_pipeline_ = pickle.load(file_handle)
 
     @property
     def _fingerprinter_cache(self):
