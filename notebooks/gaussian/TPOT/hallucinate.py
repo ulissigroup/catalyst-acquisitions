@@ -1,9 +1,15 @@
 import random
 import json
 import warnings
+
+#import os
+#os.environ['PYTHONPATH'] = '/home/jovyan/GASpy:/home/jovyan/GASpy/GASpy_regressions:'
+
 import sys
-sys.path.append('../..')
-from src.discoverers.adsorption.tpotheuristic import TpotHeuristic
+sys.path.append('../../..')
+from src.discoverers.adsorption.gaussian import GaussianDiscoverer
+from src.discoverers.adsorption.models import TPOT
+from src.discoverers.adsorption.values import calc_co2rr_activities
 
 
 adsorbate = 'CO'
@@ -12,7 +18,7 @@ initial_training_size = 200
 batch_size = 200
 quantile_cutoff = 0.95
 
-with open('../pull_data/%s/%s.json' % (adsorbate, adsorbate), 'r') as file_handle:
+with open('../../pull_data/%s/%s.json' % (adsorbate, adsorbate), 'r') as file_handle:
     docs = json.load(file_handle)
 random.Random(42).shuffle(docs)
 
@@ -45,17 +51,20 @@ with warnings.catch_warnings():
     warnings.filterwarnings(message='We do not have any energy data for %s on ' % adsorbate, action='ignore')
 
     # Initialize
-    discoverer = TpotHeuristic(target_energy=target_energy,
-                               quantile_cutoff=quantile_cutoff,
-                               batch_size=batch_size,
-                               training_features=training_features,
-                               training_labels=training_labels,
-                               training_surfaces=training_surfaces,
-                               sampling_features=sampling_features,
-                               sampling_labels=sampling_labels,
-                               sampling_surfaces=sampling_surfaces,
-                               init_train=True  # Set to `False` only for warm starts
-                               )
+    model = TPOT()
+    discoverer = GaussianDiscoverer(model=model,
+                                    value_calculator=calc_co2rr_activities,
+                                    target_energy=target_energy,
+                                    quantile_cutoff=quantile_cutoff,
+                                    batch_size=batch_size,
+                                    training_features=training_features,
+                                    training_labels=training_labels,
+                                    training_surfaces=training_surfaces,
+                                    sampling_features=sampling_features,
+                                    sampling_labels=sampling_labels,
+                                    sampling_surfaces=sampling_surfaces,
+                                    init_train=False  # Set to `False` only for warm starts
+                                    )
     discoverer.load_last_run()
 
 # The GASpy fingerprinter will be yelling at us a lot about missing data.
