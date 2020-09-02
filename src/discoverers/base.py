@@ -329,7 +329,6 @@ class BaseActiveDiscoverer:
             proxy_reward_name = 'Proxy Reward'
         _ = ax.set_xlabel('Batch number')
         _ = ax.set_ylabel(proxy_reward_name)
-        _ = ax.set_ylim(0., 1.)
         _ = fig.set_size_inches(*FIG_SIZE)
         _ = ax.get_xaxis().set_major_formatter(FORMATTER)
         return fig
