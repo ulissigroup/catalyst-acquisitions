@@ -141,18 +141,33 @@ class CFGP(BaseModel):
         '''
         self.trainer.save_state()
 
-    def load(self):
+    def load(self, nn_checkpoint_file=None,
+             gp_checkpoint_file='gp_state.pth',
+             normalizer_checkpoint_file='normalizer.pth'):
         '''
         Load the `checkpoint.pt` file in the last subfolder within
         `checkpoints/`. Note that once we instantiate this model, we
         automatically create another subfolder. So technically, we look for the
         second-to-last folder to read a `checkpoint.pt` file, which WAS the
-        last folder before we made anothehr one.
-        '''
-        prefix = 'checkpoints'
-        cp_folders = os.listdir(prefix)
-        cp_folders.sort()
-        nn_checkpoint_file = os.path.join(prefix, cp_folders[-2], 'checkpoint.pt')
+        last folder before we made another one.
 
-        self.model._init_cfgp_trainer([0])
-        self.model.trainer.load_state(nn_checkpoint_file=nn_checkpoint_file)
+        Args:
+            nn_checkpoint_file          String you can use to override the
+                                        checkpoint file to read from. If
+                                        `None`, then defaults to what is found
+                                        automatically.
+            gp_checkpoint_file          String indicating the location of the
+                                        GP checkpoint file
+            normalizer_checkpoint_file  String indicating the location of the
+                                        normalizer checkpoint file
+        '''
+        if nn_checkpoint_file is None:
+            prefix = 'checkpoints'
+            cp_folders = os.listdir(prefix)
+            cp_folders.sort()
+            nn_checkpoint_file = os.path.join(prefix, cp_folders[-2], 'checkpoint.pt')
+
+        self._init_cfgp_trainer([0])
+        self.trainer.load_state(nn_checkpoint_file=nn_checkpoint_file,
+                                gp_checkpoint_file=gp_checkpoint_file,
+                                normalizer_checkpoint_file=normalizer_checkpoint_file)
