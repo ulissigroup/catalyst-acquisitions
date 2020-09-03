@@ -449,7 +449,10 @@ class BaseAdsorptionDiscoverer(BaseActiveDiscoverer):
         except (np.core._exceptions.AxisError, RuntimeError):
             print('Could not concatenate predicted energies; assuming that '
                   'there are no predictions left to make.')
-            energies, stdevs, surfaces = sampled_energies, sampled_stdevs, sampled_surfaces
+            features = sampled_features
+            energies = sampled_energies
+            stdevs = sampled_stdevs
+            surfaces = sampled_surfaces
 
         # Cache the energies
         self._predicted_energies = energies, stdevs, surfaces
