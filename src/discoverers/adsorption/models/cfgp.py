@@ -5,6 +5,7 @@ __email__ = 'ktran@andrew.cmu.edu'
 import os
 import torch
 from torch.utils.data import DataLoader
+from gpytorch.kernels import MaternKernel
 from ocpmodels.common.data_parallel import ParallelCollater
 from ocpmodels.trainers.simple_trainer import SimpleTrainer
 from ocpmodels.trainers.gpytorch_trainer import GPyTorchTrainer
@@ -18,10 +19,11 @@ class CFGP(BaseModel):
     This is our wrapper for using a convolution-fed Gaussian process to predict
     adsorption energies.
     '''
-    def __init__(self, db_dir, num_gpus=torch.cuda.device_count()):
+    def __init__(self, db_dir, num_gpus=torch.cuda.device_count(), CovKernel=None):
         ''' Instantiate the settings for our CFGP '''
         self.db_dir = db_dir
         self.num_gpus = num_gpus
+        self.CovKernel = CovKernel
         self.dataset = Gasdb({'src': self.db_dir})
 
     def train(self, indices, _labels=None):
@@ -101,7 +103,7 @@ class CFGP(BaseModel):
             self.collate_fn = None
 
     def _init_gp_trainer(self):
-        self.gp_trainer = GPyTorchTrainer()
+        self.gp_trainer = GPyTorchTrainer(CovKernel=self.CovKernel)
 
     def predict(self, indices):
         '''
