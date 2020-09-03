@@ -10,7 +10,7 @@ from src.discoverers.adsorption.models import PrimeModel
 
 # Discoverer settings
 adsorbate = 'CO'
-initial_training_size = 200
+initial_training_size = 1000
 batch_size = 200
 quantile_cutoff = 0.95
 
