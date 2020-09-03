@@ -1,17 +1,20 @@
-import sys
-sys.path.insert(0, '../../')
-from src.discoverers.adsorption.randomsearch_cfgp import RandomSearcherCFGP
 import random
 import ase.db
+
+import sys
+sys.path.insert(0, '../../../')
+from src.discoverers.adsorption.models import CFGP
+from src.discoverers.adsorption.randomsearch import RandomSearcher
+from src.discoverers.adsorption.values import calc_co2rr_activities
 
 
 adsorbate = 'CO'
 target_energy = -0.67
-initial_training_size = 200
+initial_training_size = 1000
 batch_size = 200
 quantile_cutoff = 0.95
 
-db_dir = '../pull_data/%s/' % adsorbate
+db_dir = '../../pull_data/%s/' % adsorbate
 db = ase.db.connect(db_dir + '%s.db' % adsorbate)
 rows = list(db.select())
 random.Random(42).shuffle(rows)
@@ -36,20 +39,21 @@ training_features, training_labels, training_surfaces = parse_rows(rows[:initial
 sampling_features, sampling_labels, sampling_surfaces = parse_rows(rows[initial_training_size:])
 
 # Initialize
-discoverer = RandomSearcherCFGP(db_dir=db_dir,
-                                target_energy=target_energy,
-                                quantile_cutoff=quantile_cutoff,
-                                batch_size=batch_size,
-                                training_features=training_features,
-                                training_labels=training_labels,
-                                training_surfaces=training_surfaces,
-                                sampling_features=sampling_features,
-                                sampling_labels=sampling_labels,
-                                sampling_surfaces=sampling_surfaces,
-                                init_train=False  # Set to `False` only for warm starts
-                                )
+model = CFGP(db_dir)
+discoverer = RandomSearcher(model=model,
+                            quantile_cutoff=quantile_cutoff,
+                            value_calculator=calc_co2rr_activities,
+                            batch_size=batch_size,
+                            training_features=training_features,
+                            training_labels=training_labels,
+                            training_surfaces=training_surfaces,
+                            sampling_features=sampling_features,
+                            sampling_labels=sampling_labels,
+                            sampling_surfaces=sampling_surfaces,
+                            #init_train=False  # Set to `False` only for warm starts
+                            )
 
 # Or load the last run
-discoverer.load_last_run()
+#discoverer.load_last_run()
 
 discoverer.simulate_discovery()
