@@ -1,0 +1,252 @@
+Matplotlib created a temporary config/cache directory at /tmp/matplotlib-ckpbpe8c because the default path (/home/jovyan/.config/matplotlib) is not a writable directory; it is highly recommended to set the MPLCONFIGDIR environment variable to a writable directory, in particular to speed up the import of Matplotlib and to better support multiprocessing.
+Matplotlib is building the font cache; this may take a moment.
+Hallucinating discovery...:   0%|          | 0/20 [00:00<?, ?it/s]
+Optimization Progress:   0%|          | 0/96 [00:00<?, ?pipeline/s][A<string>:6: VisibleDeprecationWarning: Creating an ndarray from ragged nested sequences (which is a list-or-tuple of lists-or-tuples-or ndarrays with different lengths or shapes) is deprecated. If you meant to do this, you must specify 'dtype=object' when creating the ndarray
+
+Optimization Progress:   3%|▎         | 3/96 [13:00<6:43:00, 260.00s/pipeline][A
+Optimization Progress:  49%|████▉     | 47/96 [13:13<2:28:42, 182.10s/pipeline][A
+Optimization Progress:  52%|█████▏    | 50/96 [13:15<1:37:49, 127.60s/pipeline][A
+Optimization Progress:  53%|█████▎    | 51/96 [20:33<2:45:44, 220.98s/pipeline][A
+Generation 1 - Current best internal CV score: -0.17114445869217154
+Optimization Progress:  96%|█████████▌| 92/96 [20:37<10:18, 154.71s/pipeline]  [A
+Optimization Progress:  97%|█████████▋| 93/96 [20:44<05:31, 110.44s/pipeline][A
+Optimization Progress:  98%|█████████▊| 94/96 [29:27<07:48, 234.24s/pipeline][A
+Generation 2 - Current best internal CV score: -0.1585989428344267
+                                                                             [AHallucinating discovery...:   5%|▌         | 1/20 [1:24:58<26:54:37, 5098.83s/it]
+Best pipeline: DecisionTreeRegressor(LassoLarsCV(DecisionTreeRegressor(input_matrix, max_depth=8, min_samples_leaf=11, min_samples_split=6), normalize=True), max_depth=8, min_samples_leaf=6, min_samples_split=20)
+
+Optimization Progress:   0%|          | 0/96 [00:00<?, ?pipeline/s][A
+Optimization Progress:  33%|███▎      | 32/96 [00:14<00:28,  2.27pipeline/s][A<string>:6: VisibleDeprecationWarning: Creating an ndarray from ragged nested sequences (which is a list-or-tuple of lists-or-tuples-or ndarrays with different lengths or shapes) is deprecated. If you meant to do this, you must specify 'dtype=object' when creating the ndarray
+
+Optimization Progress:  34%|███▍      | 33/96 [11:14<3:28:24, 198.49s/pipeline][A
+Generation 1 - Current best internal CV score: -0.15188724781799642
+Optimization Progress:  74%|███████▍  | 71/96 [11:29<57:56, 139.06s/pipeline]  [A
+Optimization Progress:  75%|███████▌  | 72/96 [11:33<39:27, 98.63s/pipeline] [A
+Optimization Progress:  76%|███████▌  | 73/96 [20:25<1:27:35, 228.51s/pipeline][A
+Generation 2 - Current best internal CV score: -0.1508098481675419
+                                                                               [AHallucinating discovery...:  10%|█         | 2/20 [2:46:38<25:11:45, 5039.18s/it]
+Best pipeline: DecisionTreeRegressor(LassoLarsCV(DecisionTreeRegressor(input_matrix, max_depth=8, min_samples_leaf=11, min_samples_split=6), normalize=True), max_depth=8, min_samples_leaf=6, min_samples_split=10)
+
+Optimization Progress:   0%|          | 0/96 [00:00<?, ?pipeline/s][A
+Optimization Progress:  33%|███▎      | 32/96 [00:19<00:39,  1.61pipeline/s][A<string>:6: VisibleDeprecationWarning: Creating an ndarray from ragged nested sequences (which is a list-or-tuple of lists-or-tuples-or ndarrays with different lengths or shapes) is deprecated. If you meant to do this, you must specify 'dtype=object' when creating the ndarray
+
+Optimization Progress:  34%|███▍      | 33/96 [10:06<3:05:07, 176.31s/pipeline][A
+Generation 1 - Current best internal CV score: -0.12879554279038125
+Optimization Progress:  72%|███████▏  | 69/96 [10:12<55:33, 123.46s/pipeline]  [A
+Optimization Progress:  73%|███████▎  | 70/96 [10:29<39:45, 91.74s/pipeline] [A
+Optimization Progress:  74%|███████▍  | 71/96 [17:49<1:21:45, 196.21s/pipeline][A
+Generation 2 - Current best internal CV score: -0.12879554279038125
+                                                                               [AHallucinating discovery...:  15%|█▌        | 3/20 [4:03:23<23:10:49, 4908.79s/it]
+Best pipeline: ExtraTreesRegressor(input_matrix, bootstrap=True, max_features=0.25, min_samples_leaf=4, min_samples_split=10, n_estimators=100)
+
+Optimization Progress:   0%|          | 0/96 [00:00<?, ?pipeline/s][A
+Optimization Progress:  33%|███▎      | 32/96 [00:03<00:07,  8.54pipeline/s][A
+Optimization Progress:  38%|███▊      | 36/96 [00:21<01:25,  1.42s/pipeline][A<string>:6: VisibleDeprecationWarning: Creating an ndarray from ragged nested sequences (which is a list-or-tuple of lists-or-tuples-or ndarrays with different lengths or shapes) is deprecated. If you meant to do this, you must specify 'dtype=object' when creating the ndarray
+
+Optimization Progress:  39%|███▊      | 37/96 [11:10<3:12:31, 195.79s/pipeline][A
+Generation 1 - Current best internal CV score: -0.0885688405022787
+Optimization Progress:  73%|███████▎  | 70/96 [11:22<59:26, 137.16s/pipeline]  [A
+Optimization Progress:  74%|███████▍  | 71/96 [19:07<1:38:10, 235.61s/pipeline][A
+Generation 2 - Current best internal CV score: -0.0885688405022787
+                                                                               [AHallucinating discovery...:  20%|██        | 4/20 [5:03:21<20:04:11, 4515.72s/it]
+Best pipeline: KNeighborsRegressor(input_matrix, n_neighbors=74, p=1, weights=distance)
+
+Optimization Progress:   0%|          | 0/96 [00:00<?, ?pipeline/s][A
+Optimization Progress:  33%|███▎      | 32/96 [00:06<00:13,  4.69pipeline/s][A
+Optimization Progress:  34%|███▍      | 33/96 [00:12<01:59,  1.89s/pipeline][A<string>:6: VisibleDeprecationWarning: Creating an ndarray from ragged nested sequences (which is a list-or-tuple of lists-or-tuples-or ndarrays with different lengths or shapes) is deprecated. If you meant to do this, you must specify 'dtype=object' when creating the ndarray
+
+Optimization Progress:  35%|███▌      | 34/96 [10:04<3:04:43, 178.77s/pipeline][A
+Generation 1 - Current best internal CV score: -0.0885688405022787
+Optimization Progress:  71%|███████   | 68/96 [10:10<58:25, 125.20s/pipeline]  [A
+Optimization Progress:  73%|███████▎  | 70/96 [10:14<38:12, 88.16s/pipeline] [A
+Optimization Progress:  74%|███████▍  | 71/96 [17:13<1:18:08, 187.54s/pipeline][A
+Generation 2 - Current best internal CV score: -0.0885688405022787
+                                                                               [AHallucinating discovery...:  25%|██▌       | 5/20 [6:09:20<18:07:09, 4348.61s/it]
+Best pipeline: KNeighborsRegressor(input_matrix, n_neighbors=74, p=1, weights=distance)
+
+Optimization Progress:   0%|          | 0/96 [00:00<?, ?pipeline/s][A
+Optimization Progress:  33%|███▎      | 32/96 [00:08<00:17,  3.74pipeline/s][A
+Optimization Progress:  34%|███▍      | 33/96 [00:09<00:33,  1.87pipeline/s][A<string>:6: VisibleDeprecationWarning: Creating an ndarray from ragged nested sequences (which is a list-or-tuple of lists-or-tuples-or ndarrays with different lengths or shapes) is deprecated. If you meant to do this, you must specify 'dtype=object' when creating the ndarray
+
+Optimization Progress:  35%|███▌      | 34/96 [11:36<3:33:20, 206.46s/pipeline][A
+Generation 1 - Current best internal CV score: -0.0885688405022787
+Optimization Progress:  74%|███████▍  | 71/96 [11:46<1:00:15, 144.60s/pipeline][A
+Optimization Progress:  77%|███████▋  | 74/96 [20:48<56:59, 155.42s/pipeline]  [A
+Generation 2 - Current best internal CV score: -0.08770057478487071
+                                                                             [AHallucinating discovery...:  30%|███       | 6/20 [7:21:05<16:51:37, 4335.53s/it]
+Best pipeline: KNeighborsRegressor(input_matrix, n_neighbors=83, p=2, weights=distance)
+
+Optimization Progress:   0%|          | 0/96 [00:00<?, ?pipeline/s][A
+Optimization Progress:  33%|███▎      | 32/96 [00:06<00:12,  5.14pipeline/s][A<string>:6: VisibleDeprecationWarning: Creating an ndarray from ragged nested sequences (which is a list-or-tuple of lists-or-tuples-or ndarrays with different lengths or shapes) is deprecated. If you meant to do this, you must specify 'dtype=object' when creating the ndarray
+
+Optimization Progress:  35%|███▌      | 34/96 [11:39<1:47:37, 104.15s/pipeline][A
+Generation 1 - Current best internal CV score: -0.07713039788734602
+Optimization Progress:  73%|███████▎  | 70/96 [11:45<31:36, 72.96s/pipeline]   [A
+Optimization Progress:  75%|███████▌  | 72/96 [20:22<51:24, 128.52s/pipeline][A
+Generation 2 - Current best internal CV score: -0.07713039788734602
+                                                                             [AHallucinating discovery...:  35%|███▌      | 7/20 [8:47:51<16:35:57, 4596.71s/it]
+Best pipeline: KNeighborsRegressor(input_matrix, n_neighbors=5, p=1, weights=distance)
+
+Optimization Progress:   0%|          | 0/96 [00:00<?, ?pipeline/s][A
+Optimization Progress:  33%|███▎      | 32/96 [00:04<00:07,  8.00pipeline/s][A<string>:6: VisibleDeprecationWarning: Creating an ndarray from ragged nested sequences (which is a list-or-tuple of lists-or-tuples-or ndarrays with different lengths or shapes) is deprecated. If you meant to do this, you must specify 'dtype=object' when creating the ndarray
+
+Optimization Progress:  34%|███▍      | 33/96 [13:03<4:05:34, 233.88s/pipeline][A
+Generation 1 - Current best internal CV score: -0.07713039788734602
+Optimization Progress:  78%|███████▊  | 75/96 [13:07<57:18, 163.74s/pipeline]  [A
+Optimization Progress:  79%|███████▉  | 76/96 [13:13<38:52, 116.64s/pipeline][A
+Optimization Progress:  80%|████████  | 77/96 [24:47<1:31:47, 289.85s/pipeline][A
+Generation 2 - Current best internal CV score: -0.07713039788734602
+                                                                               [AHallucinating discovery...:  40%|████      | 8/20 [11:02:08<18:46:57, 5634.76s/it]
+Best pipeline: KNeighborsRegressor(input_matrix, n_neighbors=5, p=1, weights=distance)
+
+Optimization Progress:   0%|          | 0/96 [00:00<?, ?pipeline/s][A
+Optimization Progress:  33%|███▎      | 32/96 [00:03<00:06,  9.50pipeline/s][A
+Optimization Progress:  34%|███▍      | 33/96 [00:08<01:45,  1.67s/pipeline][A<string>:6: VisibleDeprecationWarning: Creating an ndarray from ragged nested sequences (which is a list-or-tuple of lists-or-tuples-or ndarrays with different lengths or shapes) is deprecated. If you meant to do this, you must specify 'dtype=object' when creating the ndarray
+
+Optimization Progress:  35%|███▌      | 34/96 [11:30<3:32:30, 205.66s/pipeline][A
+Generation 1 - Current best internal CV score: -0.07713039788734602
+Optimization Progress:  74%|███████▍  | 71/96 [11:37<1:00:00, 144.01s/pipeline][A
+Optimization Progress:  78%|███████▊  | 75/96 [21:43<51:11, 146.27s/pipeline]  [A
+Generation 2 - Current best internal CV score: -0.07713039788734602
+                                                                             [AHallucinating discovery...:  45%|████▌     | 9/20 [12:10:56<15:50:10, 5182.76s/it]
+Best pipeline: KNeighborsRegressor(input_matrix, n_neighbors=5, p=1, weights=distance)
+
+Optimization Progress:   0%|          | 0/96 [00:00<?, ?pipeline/s][A
+Optimization Progress:  33%|███▎      | 32/96 [00:05<00:10,  5.90pipeline/s][A
+Optimization Progress:  35%|███▌      | 34/96 [00:06<00:16,  3.83pipeline/s][A<string>:6: VisibleDeprecationWarning: Creating an ndarray from ragged nested sequences (which is a list-or-tuple of lists-or-tuples-or ndarrays with different lengths or shapes) is deprecated. If you meant to do this, you must specify 'dtype=object' when creating the ndarray
+
+Optimization Progress:  38%|███▊      | 36/96 [13:41<2:02:29, 122.49s/pipeline][A
+Generation 1 - Current best internal CV score: -0.07713039788734602
+Optimization Progress:  80%|████████  | 77/96 [13:56<27:11, 85.85s/pipeline]   [A
+Optimization Progress:  81%|████████▏ | 78/96 [24:26<1:14:46, 249.26s/pipeline][A
+Generation 2 - Current best internal CV score: -0.07713039788734602
+                                                                               [AHallucinating discovery...:  50%|█████     | 10/20 [13:57:48<15:25:13, 5551.38s/it]
+Best pipeline: KNeighborsRegressor(input_matrix, n_neighbors=5, p=1, weights=distance)
+
+Optimization Progress:   0%|          | 0/96 [00:00<?, ?pipeline/s][A
+Optimization Progress:  33%|███▎      | 32/96 [00:08<00:16,  3.94pipeline/s][A<string>:6: VisibleDeprecationWarning: Creating an ndarray from ragged nested sequences (which is a list-or-tuple of lists-or-tuples-or ndarrays with different lengths or shapes) is deprecated. If you meant to do this, you must specify 'dtype=object' when creating the ndarray
+
+Optimization Progress:  34%|███▍      | 33/96 [14:04<4:23:32, 251.00s/pipeline][A
+Generation 1 - Current best internal CV score: -0.07713039788734602
+Optimization Progress:  79%|███████▉  | 76/96 [14:25<58:36, 175.84s/pipeline]  [A
+Optimization Progress:  80%|████████  | 77/96 [14:28<39:17, 124.09s/pipeline][A
+Optimization Progress:  81%|████████▏ | 78/96 [25:44<1:26:52, 289.57s/pipeline][A
+Generation 2 - Current best internal CV score: -0.07713039788734602
+                                                                               [AHallucinating discovery...:  55%|█████▌    | 11/20 [16:32:09<16:39:39, 6664.36s/it]
+Best pipeline: KNeighborsRegressor(input_matrix, n_neighbors=5, p=1, weights=distance)
+
+Optimization Progress:   0%|          | 0/96 [00:00<?, ?pipeline/s][A
+Optimization Progress:  33%|███▎      | 32/96 [00:05<00:10,  6.16pipeline/s][A
+Optimization Progress:  34%|███▍      | 33/96 [00:13<02:50,  2.70s/pipeline][A<string>:6: VisibleDeprecationWarning: Creating an ndarray from ragged nested sequences (which is a list-or-tuple of lists-or-tuples-or ndarrays with different lengths or shapes) is deprecated. If you meant to do this, you must specify 'dtype=object' when creating the ndarray
+
+Optimization Progress:  36%|███▋      | 35/96 [13:27<2:02:58, 120.96s/pipeline][A
+Generation 1 - Current best internal CV score: -0.07669010046766296
+Optimization Progress:  81%|████████▏ | 78/96 [13:33<25:24, 84.71s/pipeline]   [A
+Optimization Progress:  82%|████████▏ | 79/96 [13:47<17:59, 63.49s/pipeline][A
+Optimization Progress:  84%|████████▍ | 81/96 [23:33<33:04, 132.27s/pipeline][A
+Generation 2 - Current best internal CV score: -0.07669010046766296
+                                                                             [AHallucinating discovery...:  60%|██████    | 12/20 [19:27:32<17:22:55, 7821.99s/it]
+Best pipeline: KNeighborsRegressor(PCA(input_matrix, iterated_power=1, svd_solver=randomized), n_neighbors=2, p=1, weights=distance)
+
+Optimization Progress:   0%|          | 0/96 [00:00<?, ?pipeline/s][A
+Optimization Progress:  33%|███▎      | 32/96 [00:08<00:16,  3.77pipeline/s][A
+Optimization Progress:  35%|███▌      | 34/96 [00:16<01:27,  1.41s/pipeline][A<string>:6: VisibleDeprecationWarning: Creating an ndarray from ragged nested sequences (which is a list-or-tuple of lists-or-tuples-or ndarrays with different lengths or shapes) is deprecated. If you meant to do this, you must specify 'dtype=object' when creating the ndarray
+
+Optimization Progress:  39%|███▊      | 37/96 [14:16<1:23:32, 84.95s/pipeline][A
+Generation 1 - Current best internal CV score: -0.0756475898524854
+Optimization Progress:  81%|████████▏ | 78/96 [14:18<17:50, 59.48s/pipeline]  [A
+Optimization Progress:  83%|████████▎ | 80/96 [14:38<11:53, 44.62s/pipeline][A
+Optimization Progress:  84%|████████▍ | 81/96 [27:38<1:06:21, 265.40s/pipeline][A
+Generation 2 - Current best internal CV score: -0.0756475898524854
+                                                                               [AHallucinating discovery...:  65%|██████▌   | 13/20 [21:43:01<15:23:18, 7914.00s/it]
+Best pipeline: KNeighborsRegressor(input_matrix, n_neighbors=5, p=2, weights=distance)
+
+Optimization Progress:   0%|          | 0/96 [00:00<?, ?pipeline/s][A
+Optimization Progress:  33%|███▎      | 32/96 [00:18<00:37,  1.70pipeline/s][A
+Optimization Progress:  34%|███▍      | 33/96 [00:22<01:34,  1.50s/pipeline][A<string>:6: VisibleDeprecationWarning: Creating an ndarray from ragged nested sequences (which is a list-or-tuple of lists-or-tuples-or ndarrays with different lengths or shapes) is deprecated. If you meant to do this, you must specify 'dtype=object' when creating the ndarray
+
+Optimization Progress:  35%|███▌      | 34/96 [16:14<4:56:17, 286.73s/pipeline][A
+Generation 1 - Current best internal CV score: -0.07447562444758679
+Optimization Progress:  86%|████████▋ | 83/96 [16:17<43:29, 200.73s/pipeline]  [A
+Optimization Progress:  88%|████████▊ | 84/96 [29:43<1:16:27, 382.26s/pipeline][A
+Generation 2 - Current best internal CV score: -0.07447562444758679
+                                                                               [AHallucinating discovery...:  70%|███████   | 14/20 [22:31:02<10:40:24, 6404.05s/it]
+Best pipeline: KNeighborsRegressor(GradientBoostingRegressor(input_matrix, alpha=0.99, learning_rate=0.01, loss=ls, max_depth=1, max_features=0.25, min_samples_leaf=18, min_samples_split=17, n_estimators=100, subsample=0.1), n_neighbors=4, p=1, weights=distance)
+
+Optimization Progress:   0%|          | 0/96 [00:00<?, ?pipeline/s][A
+Optimization Progress:  33%|███▎      | 32/96 [00:07<00:15,  4.09pipeline/s][A
+Optimization Progress:  34%|███▍      | 33/96 [00:15<02:29,  2.37s/pipeline][A<string>:6: VisibleDeprecationWarning: Creating an ndarray from ragged nested sequences (which is a list-or-tuple of lists-or-tuples-or ndarrays with different lengths or shapes) is deprecated. If you meant to do this, you must specify 'dtype=object' when creating the ndarray
+
+Optimization Progress:  35%|███▌      | 34/96 [22:13<6:50:24, 397.17s/pipeline][A
+Generation 1 - Current best internal CV score: -0.07447562444758679
+Optimization Progress:  90%|████████▉ | 86/96 [22:18<46:20, 278.04s/pipeline]  [A
+Optimization Progress:  91%|█████████ | 87/96 [22:25<29:30, 196.69s/pipeline][A
+Optimization Progress:  92%|█████████▏| 88/96 [36:20<51:45, 388.16s/pipeline][A
+Generation 2 - Current best internal CV score: -0.07447562444758679
+                                                                             [AHallucinating discovery...:  75%|███████▌  | 15/20 [25:40:10<10:57:16, 7887.38s/it]
+Best pipeline: KNeighborsRegressor(GradientBoostingRegressor(input_matrix, alpha=0.99, learning_rate=0.01, loss=ls, max_depth=1, max_features=0.25, min_samples_leaf=18, min_samples_split=17, n_estimators=100, subsample=0.1), n_neighbors=4, p=1, weights=distance)
+
+Optimization Progress:   0%|          | 0/96 [00:00<?, ?pipeline/s][A
+Optimization Progress:  33%|███▎      | 32/96 [00:01<00:03, 21.15pipeline/s][A<string>:6: VisibleDeprecationWarning: Creating an ndarray from ragged nested sequences (which is a list-or-tuple of lists-or-tuples-or ndarrays with different lengths or shapes) is deprecated. If you meant to do this, you must specify 'dtype=object' when creating the ndarray
+
+Optimization Progress:  34%|███▍      | 33/96 [17:34<5:31:44, 315.95s/pipeline][A
+Generation 1 - Current best internal CV score: -0.07447562444758679
+Optimization Progress:  81%|████████▏ | 78/96 [17:35<1:06:21, 221.17s/pipeline][A
+Optimization Progress:  83%|████████▎ | 80/96 [17:38<41:24, 155.30s/pipeline]  [A
+Optimization Progress:  83%|████████▎ | 80/96 [17:51<41:24, 155.30s/pipeline][A
+Optimization Progress:  84%|████████▍ | 81/96 [30:42<1:25:59, 343.98s/pipeline][A
+Generation 2 - Current best internal CV score: -0.07430781167383624
+                                                                               [AHallucinating discovery...:  80%|████████  | 16/20 [28:01:52<8:58:06, 8071.60s/it] 
+Best pipeline: KNeighborsRegressor(DecisionTreeRegressor(input_matrix, max_depth=1, min_samples_leaf=9, min_samples_split=18), n_neighbors=5, p=2, weights=distance)
+
+Optimization Progress:   0%|          | 0/96 [00:00<?, ?pipeline/s][A
+Optimization Progress:  33%|███▎      | 32/96 [00:05<00:10,  6.29pipeline/s][A
+Optimization Progress:  34%|███▍      | 33/96 [00:08<01:08,  1.09s/pipeline][A<string>:6: VisibleDeprecationWarning: Creating an ndarray from ragged nested sequences (which is a list-or-tuple of lists-or-tuples-or ndarrays with different lengths or shapes) is deprecated. If you meant to do this, you must specify 'dtype=object' when creating the ndarray
+
+Optimization Progress:  38%|███▊      | 36/96 [13:17<1:19:41, 79.69s/pipeline][A
+Generation 1 - Current best internal CV score: -0.07411290625098611
+Optimization Progress:  83%|████████▎ | 80/96 [13:24<14:53, 55.83s/pipeline]  [A
+Optimization Progress:  88%|████████▊ | 84/96 [23:22<16:47, 83.97s/pipeline][A
+Generation 2 - Current best internal CV score: -0.07411290625098611
+                                                                            [AHallucinating discovery...:  85%|████████▌ | 17/20 [29:45:13<6:15:31, 7510.62s/it]
+Best pipeline: KNeighborsRegressor(SelectFwe(DecisionTreeRegressor(input_matrix, max_depth=1, min_samples_leaf=9, min_samples_split=18), alpha=0.044), n_neighbors=5, p=2, weights=distance)
+
+Optimization Progress:   0%|          | 0/96 [00:00<?, ?pipeline/s][A
+Optimization Progress:  33%|███▎      | 32/96 [00:03<00:07,  8.27pipeline/s][A
+Optimization Progress:  34%|███▍      | 33/96 [00:10<02:15,  2.15s/pipeline][A<string>:6: VisibleDeprecationWarning: Creating an ndarray from ragged nested sequences (which is a list-or-tuple of lists-or-tuples-or ndarrays with different lengths or shapes) is deprecated. If you meant to do this, you must specify 'dtype=object' when creating the ndarray
+
+Optimization Progress:  35%|███▌      | 34/96 [15:17<4:42:33, 273.45s/pipeline][A
+Generation 1 - Current best internal CV score: -0.07407828397151094
+Optimization Progress:  76%|███████▌  | 73/96 [15:19<1:13:22, 191.43s/pipeline][A
+Optimization Progress:  77%|███████▋  | 74/96 [27:01<2:06:22, 344.66s/pipeline][A
+Generation 2 - Current best internal CV score: -0.07382242054182853
+                                                                               [AHallucinating discovery...:  90%|█████████ | 18/20 [31:26:53<3:56:14, 7087.48s/it]
+Best pipeline: KNeighborsRegressor(Normalizer(input_matrix, norm=l1), n_neighbors=4, p=2, weights=distance)
+
+Optimization Progress:   0%|          | 0/96 [00:00<?, ?pipeline/s][A
+Optimization Progress:  33%|███▎      | 32/96 [00:06<00:13,  4.72pipeline/s][A
+Optimization Progress:  38%|███▊      | 36/96 [00:06<00:09,  6.38pipeline/s][A<string>:6: VisibleDeprecationWarning: Creating an ndarray from ragged nested sequences (which is a list-or-tuple of lists-or-tuples-or ndarrays with different lengths or shapes) is deprecated. If you meant to do this, you must specify 'dtype=object' when creating the ndarray
+
+Optimization Progress:  38%|███▊      | 36/96 [00:16<00:09,  6.38pipeline/s][A
+Optimization Progress:  39%|███▊      | 37/96 [15:07<4:25:53, 270.39s/pipeline][A
+Generation 1 - Current best internal CV score: -0.07382242054182853
+Optimization Progress:  89%|████████▊ | 85/96 [15:10<34:42, 189.29s/pipeline]  [A
+Optimization Progress:  90%|████████▉ | 86/96 [15:18<22:29, 134.91s/pipeline][A
+Optimization Progress:  91%|█████████ | 87/96 [27:40<47:32, 316.95s/pipeline][A
+Generation 2 - Current best internal CV score: -0.07382242054182853
+                                                                             [AHallucinating discovery...:  95%|█████████▌| 19/20 [32:57:24<1:49:50, 6590.34s/it]
+Best pipeline: KNeighborsRegressor(Normalizer(input_matrix, norm=l1), n_neighbors=4, p=2, weights=distance)
+
+Optimization Progress:   0%|          | 0/96 [00:00<?, ?pipeline/s][A
+Optimization Progress:  33%|███▎      | 32/96 [00:08<00:17,  3.74pipeline/s][A<string>:6: VisibleDeprecationWarning: Creating an ndarray from ragged nested sequences (which is a list-or-tuple of lists-or-tuples-or ndarrays with different lengths or shapes) is deprecated. If you meant to do this, you must specify 'dtype=object' when creating the ndarray
+
+Optimization Progress:  36%|███▋      | 35/96 [12:35<1:16:09, 74.91s/pipeline][A
+Generation 1 - Current best internal CV score: -0.07259465127084087
+Optimization Progress:  77%|███████▋  | 74/96 [12:40<19:14, 52.48s/pipeline]  [A
+Optimization Progress:  78%|███████▊  | 75/96 [22:28<1:14:34, 213.06s/pipeline][A
+Generation 2 - Current best internal CV score: -0.0723911092134052
+                                                                               [AHallucinating discovery...: 100%|██████████| 20/20 [33:56:33<00:00, 5677.87s/it]  Hallucinating discovery...: 100%|██████████| 20/20 [33:56:33<00:00, 6109.65s/it]
+
+Best pipeline: KNeighborsRegressor(DecisionTreeRegressor(OneHotEncoder(LinearSVR(input_matrix, C=25.0, dual=False, epsilon=0.001, loss=squared_epsilon_insensitive, tol=0.01), minimum_fraction=0.25, sparse=False, threshold=10), max_depth=2, min_samples_leaf=16, min_samples_split=17), n_neighbors=5, p=2, weights=distance)
+Could not concatenate predicted energies; assuming that there are no predictions left to make.
+Could not concatenate predicted energies; assuming that there are no predictions left to make.

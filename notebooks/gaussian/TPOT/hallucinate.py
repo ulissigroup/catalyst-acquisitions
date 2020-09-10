@@ -8,13 +8,13 @@ import warnings
 import sys
 sys.path.append('../../..')
 from src.discoverers.adsorption.gaussian import GaussianDiscoverer
-from src.discoverers.adsorption.models import TPOT
+from src.discoverers.adsorption.models.tpot import TPOT
 from src.discoverers.adsorption.values import calc_co2rr_activities
 
 
 adsorbate = 'CO'
 target_energy = -0.67  # eV
-initial_training_size = 200
+initial_training_size = 1000
 batch_size = 200
 quantile_cutoff = 0.95
 
