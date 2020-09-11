@@ -10,7 +10,7 @@ from src.discoverers.adsorption.values import calc_co2rr_activities
 
 adsorbate = 'CO'
 target_energy = -0.67
-initial_training_size = 200
+initial_training_size = 1000
 batch_size = 200
 quantile_cutoff = 0.95
 
@@ -51,10 +51,10 @@ discoverer = MultiscaleDiscoverer(model=model,
                                   sampling_labels=sampling_labels,
                                   sampling_surfaces=sampling_surfaces,
                                   #init_train=False  # Set to `False` only for warm starts
-                                 )
+                                  )
 
 # Or load the last run
-discoverer.load_last_run()
+#discoverer.load_last_run()
 
 # Run
 discoverer.simulate_discovery()
