@@ -1,0 +1,3 @@
+[submodule "MMS_manuscript"]
+	path = MMS_manuscript
+	url = git@github.com:ulissigroup/MMS_manuscript.git
