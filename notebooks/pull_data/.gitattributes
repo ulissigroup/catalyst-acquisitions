@@ -1,3 +1,6 @@
 CO/CO.db filter=lfs diff=lfs merge=lfs -text
 H/H.db filter=lfs diff=lfs merge=lfs -text
 OH/OH.db filter=lfs diff=lfs merge=lfs -text
+CO_truncated/CO.db filter=lfs diff=lfs merge=lfs -text
+H_truncated/H.db filter=lfs diff=lfs merge=lfs -text
+OH_truncated/OH.db filter=lfs diff=lfs merge=lfs -text
