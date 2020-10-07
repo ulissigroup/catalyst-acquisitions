@@ -4,14 +4,5 @@ Acquisition functions for density function theory (DFT) simulations for catalyst
 
 # Dependencies
 
-`conda install pyyaml tensorboard pytorch gpytorch pre-commit ase tqdm seaborn pymatgen scikit-learn pandas jupyter`
-
-
-## Additional dependencies for notebooks
-
-For TPOT_heuristic.ipynb:
-* `pycache` (use developer version via `$ pip install git+https://github.com/rossant/ipycache --upgrade`)
-* `bson`
-* `tpot`
-* `gaspy`
-* `gaspy_regress`
+We created a Docker [image](https://hub.docker.com/repository/docker/ulissigroup/kubeflow_catalyst_acquisitions) and used it to run everything in this repository.
+See the [Dockerfile](./docker/Dockerfile) for the dependencies we installed into the image.
