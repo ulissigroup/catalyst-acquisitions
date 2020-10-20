@@ -12,7 +12,7 @@ from src.discoverers.adsorption.models import PrimeModel
 adsorbate = 'CO'
 initial_training_size = 1000
 batch_size = 200
-quantile_cutoff = 0.95
+quantile_cutoff = 0.9
 
 # Data loading
 db_dir = '../../pull_data/%s_truncated/' % adsorbate

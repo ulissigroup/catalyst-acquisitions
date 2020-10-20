@@ -12,7 +12,7 @@ from src.discoverers.adsorption.models import NullModel
 adsorbate = 'CO'
 initial_training_size = 1000
 batch_size = 200
-quantile_cutoff = 0.95
+quantile_cutoff = 0.9
 
 # Data loading
 db_dir = '../../pull_data/%s_truncated/' % adsorbate
@@ -52,9 +52,9 @@ discoverer = MultiscaleDiscoverer(model=model,
                                   sampling_features=sampling_features,
                                   sampling_labels=sampling_labels,
                                   sampling_surfaces=sampling_surfaces,
-                                  init_train=False  # Set to `False` only for warm starts
+                                  #init_train=False  # Set to `False` only for warm starts
                                   )
 
-discoverer.load_last_run()
+#discoverer.load_last_run()
 
 discoverer.simulate_discovery()
