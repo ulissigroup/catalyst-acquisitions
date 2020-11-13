@@ -2,9 +2,11 @@ __author__ = 'Kevin Tran'
 __email__ = 'ktran@andrew.cmu.edu'
 
 
+import os
 import warnings
 import numpy as np
 from scipy import stats
+import ase.db
 from ocpmodels.datasets.gasdb import Gasdb
 from .base import BaseModel
 
@@ -32,12 +34,26 @@ class PrimeModel(BaseModel):
         '''
         self.db_dir = db_dir
         self.std_dist = stats.chi2(df=df, loc=0, scale=uncertainty)
-        self.dataset = Gasdb({'src': self.db_dir})
 
         # Read from the ASE database once for future speedup
-        rows = list(self.dataset.ase_db.select())
+        iterator = tqdm(self.ase_db.select(),
+                        desc='reading ASE db for Prime model',
+                        total=self.ase_db.count())
+        rows = list(iterator)
         self.data_dict = {row.id: row.data['adsorption_energy']
                           for row in tqdm(rows, desc='Reading data')}
+
+    @property
+    def ase_db(self):
+        '''
+        This method/property will use the first `*.db` object in the source
+        directory.
+        '''
+        for file_ in os.listdir(self.db_dir):
+            if file_.endswith(".db"):
+                raw_file_name = os.path.join(self.db_dir, file_)
+                db = ase.db.connect(raw_file_name)
+                return db
 
     def train(self, _features=None, _labels=None):
         pass

@@ -265,7 +265,10 @@ class MultiscaleDiscoverer(BaseAdsorptionDiscoverer):
         site_energies[2][site_index] = 0.
 
         # We also need to get the DFT-calculated energy for later use
-        db = self.model.dataset.ase_db
+        try:
+            db = self.model.dataset.ase_db
+        except AttributeError:
+            db = self.model.ase_db
         row = list(db.select(db_index))[0]
         dft_energy = row['data']['adsorption_energy']
         return db_index, dft_energy, surface

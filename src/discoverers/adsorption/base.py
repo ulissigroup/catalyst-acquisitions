@@ -23,6 +23,8 @@ class BaseAdsorptionDiscoverer(BaseActiveDiscoverer):
     assumptions:  1) we are trying to optimize the adsorption energy and 2) our
     inputs are a list of dictionaries with the 'energy' and 'std' keys.
     '''
+    delete_old_caches = False
+
     def __init__(self, model, quantile_cutoff, value_calculator,
                  training_features, training_labels, training_surfaces,
                  sampling_features, sampling_labels, sampling_surfaces,
@@ -730,11 +732,19 @@ class BaseAdsorptionDiscoverer(BaseActiveDiscoverer):
             _ = self._concatenate_predicted_energies()
 
         # Save all the attributes-to-be-cached
-        cache_name = (self.cache_location +
-                      '%.3i%s' % (self.next_batch_number, self.cache_affix))
+        cache_name = os.path.join(self.cache_location,
+                                  '%.4i%s' % (self.next_batch_number, self.cache_affix))
         cache = {key: getattr(self, key) for key in self.cache_keys}
         with open(cache_name, 'wb') as file_handle:
             pickle.dump(cache, file_handle)
+
+        # If the "super-user" knows how to set `self.delete_old_caches` to
+        # True, then go ahead and delete the old caches
+        if self.delete_old_caches is True:
+            for file_name in os.listdir(self.cache_location):
+                full_file_name = os.path.join(self.cache_location, file_name)
+                if file_name.endswith('pkl') and full_file_name != cache_name:
+                    os.remove(full_file_name)
 
         # Save the model state
         self.model.save()

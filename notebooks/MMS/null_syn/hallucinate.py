@@ -1,4 +1,6 @@
 import random
+from multiprocess import Pool
+from tqdm import tqdm
 import ase.db
 
 import sys
@@ -17,22 +19,25 @@ quantile_cutoff = 0.9
 # Data loading
 db_dir = '../../pull_data/%s_synthesized/' % adsorbate
 db = ase.db.connect(db_dir + '%s.db' % adsorbate)
-rows = list(db.select())
+rows = list(tqdm(db.select(), desc='reading ASE db', total=db.count()))
 random.Random(42).shuffle(rows)
 
 
+def parse_row(row):
+    feature = row.id
+    data = row.data
+    label = data['adsorption_energy']
+    surface = (data['mpid'], data['miller'], data['shift'], data['top'])
+    return feature, label, surface
+
+
 def parse_rows(rows):
-    features = []
-    labels = []
-    surfaces = []
+    with Pool(processes=32, maxtasksperchild=1000) as pool:
+        iterator = pool.imap(parse_row, rows, chunksize=100)
+        iterator_tracked = tqdm(iterator, desc='parsing rows', total=len(rows))
+        parsed_rows = list(iterator_tracked)
 
-    for row in rows:
-        features.append(row.id)
-        data = row.data
-        labels.append(data['adsorption_energy'])
-        surface = (data['mpid'], data['miller'], data['shift'], data['top'])
-        surfaces.append(surface)
-
+    features, labels, surfaces = list(map(list, zip(*parsed_rows)))
     return features, labels, surfaces
 
 
@@ -52,9 +57,10 @@ discoverer = MultiscaleDiscoverer(model=model,
                                   sampling_features=sampling_features,
                                   sampling_labels=sampling_labels,
                                   sampling_surfaces=sampling_surfaces,
-                                  #init_train=False  # Set to `False` only for warm starts
+                                  init_train=False  # Set to `False` only for warm starts
                                   )
 
-#discoverer.load_last_run()
+discoverer.load_last_run()
 
+discoverer.delete_old_caches = True
 discoverer.simulate_discovery()
