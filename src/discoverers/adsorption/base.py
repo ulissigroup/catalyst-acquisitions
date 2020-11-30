@@ -8,6 +8,7 @@ __emails__ = ['ktran@andrew.cmu.edu', 'willie@cs.cmu.edu']
 
 
 import os
+import warnings
 from collections import defaultdict
 from copy import deepcopy
 import pickle
@@ -204,7 +205,11 @@ class BaseAdsorptionDiscoverer(BaseActiveDiscoverer):
         # then set the F1 score as the reward
         precision = self._calculate_precision(current_bulk_classes)
         recall = self._calculate_recall(current_bulk_classes)
-        f_one = 2 * (precision * recall) / (precision + recall)
+        try:
+            f_one = 2 * (precision * recall) / (precision + recall)
+        # Technically the f_one shouldn't exist, but we just use 0 to make coding easier
+        except ZeroDivisionError:
+            f_one = 0.
         self.reward_history.append(f_one)
 
     def _update_proxy_reward(self):
