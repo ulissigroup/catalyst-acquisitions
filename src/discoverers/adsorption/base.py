@@ -293,6 +293,14 @@ class BaseAdsorptionDiscoverer(BaseActiveDiscoverer):
                        for bulk_id, surface_values in surface_values_by_bulk.items()}
         return bulk_values
 
+    @property
+    def bulk_values(self):
+        '''
+        Returns the output of `self.calculate_bulk_values`. Useful to call this
+        for caching purposes.
+        '''
+        return self.calculate_bulk_values()
+
     def calculate_surface_values(self, energies_by_surface=None, current=True):
         '''
         Calculates the "value" of each surface in the discovery space by
@@ -766,7 +774,10 @@ class BaseAdsorptionDiscoverer(BaseActiveDiscoverer):
             cache = pickle.load(file_handle)
 
         for key, value in cache.items():
-            setattr(self, key, value)
+            try:
+                setattr(self, key, value)
+            except AttributeError:
+                warnings.warn("Tried to set the %s attribute when loading but couldn't" % key)
 
         self.model.load()
 
