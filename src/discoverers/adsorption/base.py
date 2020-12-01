@@ -9,6 +9,7 @@ __emails__ = ['ktran@andrew.cmu.edu', 'willie@cs.cmu.edu']
 
 import os
 import warnings
+import gc
 from collections import defaultdict
 from copy import deepcopy
 import pickle
@@ -25,6 +26,7 @@ class BaseAdsorptionDiscoverer(BaseActiveDiscoverer):
     inputs are a list of dictionaries with the 'energy' and 'std' keys.
     '''
     delete_old_caches = False
+    truncate_old_caches = False
 
     def __init__(self, model, quantile_cutoff, value_calculator,
                  training_features, training_labels, training_surfaces,
@@ -106,7 +108,8 @@ class BaseAdsorptionDiscoverer(BaseActiveDiscoverer):
         # Used to save intermediate results
         self.cache_keys = {'training_features', 'training_labels', 'training_surfaces',
                            'sampling_features', 'sampling_labels', 'sampling_surfaces',
-                           '_predicted_energies', 'residuals', 'uncertainties',
+                           '_predicted_energies', 'bulk_values',
+                           'residuals', 'uncertainties',
                            'reward_history', 'proxy_reward_history',
                            'batch_size', 'next_batch_number'}
         self.cache_affix = '_discovery_cache.pkl'
@@ -758,6 +761,31 @@ class BaseAdsorptionDiscoverer(BaseActiveDiscoverer):
                 full_file_name = os.path.join(self.cache_location, file_name)
                 if file_name.endswith('pkl') and full_file_name != cache_name:
                     os.remove(full_file_name)
+
+        # If the "super-user" knows how to set `self.truncate_old_caches` to
+        # True, then go ahead and remove the big keys from the previous cache
+        elif self.truncate_old_caches is True:
+            # Find the previous cache
+            all_files = [file_ for file_ in os.listdir() if file_.endswith('.pkl')]
+            all_files.sort()
+            file_to_truncate = all_files[-2]
+            # Delete the big keys from the old cache
+            with open(file_to_truncate, 'rb') as f_handle:
+                old_cache = pickle.load(f_handle)
+            keys_to_delete = ['training_features', 'training_labels', 'training_surfaces',
+                              'sampling_features', 'sampling_labels', 'sampling_surfaces',
+                              '_predicted_energies']
+            for key in keys_to_delete:
+                try:
+                    del old_cache[key]
+                except KeyError:
+                    pass
+            # Re-write the old cache
+            with open(file_to_truncate, 'wb') as f_handle:
+                pickle.dump(old_cache, f_handle)
+            # Clean up some memory
+            del old_cache
+            gc.collect()
 
         # Save the model state
         self.model.save()
