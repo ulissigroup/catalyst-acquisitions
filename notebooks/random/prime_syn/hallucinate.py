@@ -57,11 +57,24 @@ discoverer = RandomSearcher(model=model,
                             sampling_features=sampling_features,
                             sampling_labels=sampling_labels,
                             sampling_surfaces=sampling_surfaces,
-                            init_train=False  # Set to `False` only for warm starts
+                            #init_train=False  # Set to `False` only for warm starts
                             )
 
-# Or load the last run
-discoverer.load_last_run()
+# Start saving bulk predictions for metric munging
+discoverer.cache_keys.add('bulk_values')
 
-discoverer.delete_old_caches = True
+# Stop saving the energies so we can save on memory
+discoverer.cache_keys.discard('_predicted_energies')
+discoverer.cache_keys.discard('training_features')
+discoverer.cache_keys.discard('training_labels')
+discoverer.cache_keys.discard('training_surfaces')
+discoverer.cache_keys.discard('sampling_features')
+discoverer.cache_keys.discard('sampling_labels')
+discoverer.cache_keys.discard('sampling_surfaces')
+
+# Stop saving all the caches so we can save on memory
+#discoverer.delete_old_caches = True
+
+#discoverer.load_last_run()
+
 discoverer.simulate_discovery()

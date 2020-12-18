@@ -60,7 +60,13 @@ discoverer = MultiscaleDiscoverer(model=model,
                                   init_train=False  # Set to `False` only for warm starts
                                   )
 
+# Stop saving all the caches so we can save on memory
+#discoverer.delete_old_caches = True
+
+# Truncate the old caches to save on memory
+discoverer.truncate_old_caches = True
+
+# Load the last run for a warm start
 discoverer.load_last_run()
 
-discoverer.delete_old_caches = True
 discoverer.simulate_discovery()
