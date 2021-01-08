@@ -1,6 +1,0 @@
-checkpoints/*
-logs/
-results/
-mms_caches/*
-old/*
-*.log
