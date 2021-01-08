@@ -2,3 +2,5 @@
 *logs/
 *results/
 *data.pt
+*/*/nohup.out
+*/*/*.tar.gz
