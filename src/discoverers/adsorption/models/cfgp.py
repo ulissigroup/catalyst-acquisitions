@@ -48,7 +48,7 @@ class CFGP(BaseModel):
             self.dataset[train_indices],
             batch_size=self.cnn_args['optimizer']['batch_size'],
             shuffle=True,
-            collate_fn=self.collate_fn
+            collate_fn=self.trainer.train_loader.collate_fn,
         )
         self.trainer.train_loader = train_loader
         self.trainer.conv_trainer.train_loader = train_loader
@@ -97,10 +97,7 @@ class CFGP(BaseModel):
         self.cnn_trainer = SimpleTrainer(**self.cnn_args)
         self.dataset = Gasdb(self.cnn_args['dataset'])
 
-        if self.num_gpus > 1:
-            self.collate_fn = ParallelCollater(self.num_gpus)
-        else:
-            self.collate_fn = None
+        self.collate_fn = ParallelCollater(self.num_gpus)
 
     def _init_gp_trainer(self):
         self.gp_trainer = GPyTorchTrainer(CovKernel=self.CovKernel)
